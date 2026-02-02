@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Doc } from "../../convex/_generated/dataModel";
 
 interface FileViewerProps {
@@ -8,120 +9,127 @@ interface FileViewerProps {
 }
 
 export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
-  const [isEditing, setIsEditing] = useState(false);
+  const fileUrl = useQuery(api.myFunctions.getFileUrl, { storageId: file.storageId });
 
   const canEdit = file.editable && (userRole === "teacher" || userRole === "admin");
+  const isPresentation = file.mimeType.includes("presentation") || file.name.endsWith(".pptx") || file.name.endsWith(".ppt");
+
+  const handleCanvaEdit = () => {
+    if (!fileUrl) return;
+    // @ts-ignore
+    if (window.Canva && window.Canva.DesignButton) {
+      // @ts-ignore
+      window.Canva.DesignButton.initialize({
+        apiKey: "MOCKED_CANVA_API_KEY", // Replace with real key in production
+        onDesignPublish: (exportUrl: string) => {
+          console.log("Canva design published:", exportUrl);
+          // Here we would typically save the exported design back to Convex
+        },
+      });
+    }
+  };
 
   const renderPreview = () => {
+    if (!fileUrl) return <div className="text-center py-24 animate-pulse text-slate-400 font-bold">Generating Preview...</div>;
+
     if (file.mimeType.includes("image")) {
       return (
-        <img 
-          src={`/api/files/${file.storageId}`} 
+        <img
+          src={fileUrl}
           alt={file.name}
-          className="max-w-full h-auto"
+          className="max-w-full h-auto rounded-[2rem] shadow-2xl mx-auto border-4 border-white"
         />
       );
     }
-    
+
     if (file.mimeType.includes("pdf")) {
       return (
         <iframe
-          src={`/api/files/${file.storageId}`}
-          className="w-full h-96 border"
+          src={fileUrl}
+          className="w-full h-[70vh] border-0 rounded-[2rem] shadow-inner bg-white"
           title={file.name}
         />
       );
     }
 
-    if (file.editable) {
+    // Google Docs Viewer for Word, PPT, Excel
+    const isDoc = file.mimeType.includes("word") || isPresentation || file.mimeType.includes("sheet");
+    if (isDoc) {
       return (
-        <div className="border rounded p-4 bg-gray-50">
-          <p className="text-gray-600 mb-2">Editable document</p>
-          {isEditing ? (
-            <DocumentEditor file={file} onSave={() => setIsEditing(false)} />
-          ) : (
-            <div>
-              <p>Document preview would appear here</p>
-              {canEdit && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="mt-2 bg-blue-600 text-white px-3 py-1 rounded text-sm"
-                >
-                  Edit Document
-                </button>
-              )}
-            </div>
-          )}
+        <div className="relative group">
+          <iframe
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`}
+            className="w-full h-[70vh] border-0 rounded-[2rem] shadow-inner bg-white"
+            title={file.name}
+          />
         </div>
       );
     }
 
     return (
-      <div className="text-center py-8 text-gray-500">
-        <p>Preview not available for this file type</p>
-        <p className="text-sm mt-2">Download to view the file</p>
+      <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+        <p className="text-slate-400 font-bold italic mb-6">Preview not available for this file type</p>
+        <button
+          onClick={() => window.open(fileUrl)}
+          className="bg-brand-primary text-white px-10 py-4 rounded-3xl font-black shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all text-xs tracking-widest uppercase"
+        >
+          Download to View
+        </button>
       </div>
     );
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-        <div className="flex justify-between items-center p-4 border-b">
-          <div>
-            <h2 className="text-xl font-bold">{file.name}</h2>
-            <p className="text-sm text-gray-600">
-              {(file.size / 1024).toFixed(1)} KB • {file.type}
-            </p>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-5xl rounded-[3.5rem] shadow-[0_30px_100px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-300 border border-white/20">
+        <header className="px-10 py-8 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-md">
+          <div className="flex items-center gap-5 text-left">
+            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-slate-100">
+              {file.mimeType.includes("image") ? "🖼️" : file.mimeType.includes("pdf") ? "📕" : "📄"}
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">{file.name}</h2>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                Shared resource • {(file.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="w-12 h-12 rounded-full hover:bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-900 transition-all border border-slate-100"
+          >
+            ✕
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-auto p-10 bg-slate-50/30">
+          {renderPreview()}
+        </div>
+
+        <footer className="px-10 py-8 border-t border-slate-100 bg-white flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-2 h-2 rounded-full bg-pastel-green animate-pulse"></div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Safe Preview Powered by EduOS</span>
+          </div>
+
+          <div className="flex gap-4">
             <button
-              onClick={() => window.open(`/api/files/${file.storageId}/download`)}
-              className="bg-gray-600 text-white px-3 py-1 rounded text-sm"
+              onClick={() => window.open(fileUrl || "")}
+              className="px-8 py-3 rounded-2xl border-2 border-slate-200 font-black text-xs text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-widest"
             >
               Download
             </button>
-            <button
-              onClick={onClose}
-              className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm"
-            >
-              Close
-            </button>
+            {isPresentation && canEdit && (
+              <button
+                onClick={handleCanvaEdit}
+                className="bg-brand-primary text-white px-8 py-3 rounded-2xl font-black text-xs shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all uppercase tracking-widest flex items-center gap-2"
+              >
+                <span className="text-lg">✨</span>
+                Edit with Canva
+              </button>
+            )}
           </div>
-        </div>
-        
-        <div className="p-4 overflow-auto max-h-[calc(90vh-80px)]">
-          {renderPreview()}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DocumentEditor({ file, onSave }: { file: Doc<"files">; onSave: () => void }) {
-  const [content, setContent] = useState("Document content would be loaded here...");
-
-  return (
-    <div className="space-y-4">
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        className="w-full h-64 border rounded p-3 font-mono text-sm"
-        placeholder="Document content..."
-      />
-      <div className="flex gap-2">
-        <button
-          onClick={onSave}
-          className="bg-green-600 text-white px-4 py-2 rounded text-sm"
-        >
-          Save Changes
-        </button>
-        <button
-          onClick={onSave}
-          className="bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm"
-        >
-          Cancel
-        </button>
+        </footer>
       </div>
     </div>
   );

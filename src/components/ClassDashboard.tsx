@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { ClassView } from "./ClassView";
 
 interface ClassDashboardProps {
   user: any;
@@ -8,282 +9,207 @@ interface ClassDashboardProps {
 }
 
 export function ClassDashboard({ user, classes }: ClassDashboardProps) {
+  const [selectedClass, setSelectedClass] = useState<any>(null);
   const [showCreateClass, setShowCreateClass] = useState(false);
   const [showJoinClass, setShowJoinClass] = useState(false);
-  const [selectedClass, setSelectedClass] = useState(null);
+  const [newClassName, setNewClassName] = useState("");
+  const [newClassDescription, setNewClassDescription] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+
+  const createClass = useMutation(api.myFunctions.createClass);
+  const joinClass = useMutation(api.myFunctions.joinClass);
+
+  const handleCreateClass = async () => {
+    if (!newClassName) return;
+    await createClass({ name: newClassName, description: newClassDescription });
+    setShowCreateClass(false);
+    setNewClassName("");
+    setNewClassDescription("");
+  };
+
+  const handleJoinClass = async () => {
+    if (!joinCode) return;
+    await joinClass({ code: joinCode });
+    setShowJoinClass(false);
+    setJoinCode("");
+  };
 
   if (selectedClass) {
-    return <ClassView classData={selectedClass} user={user} onBack={() => setSelectedClass(null)} />;
+    return (
+      <ClassView
+        classId={selectedClass._id}
+        user={user}
+        onBack={() => setSelectedClass(null)}
+      />
+    );
   }
 
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: "600", color: "#111827", marginBottom: "0.25rem" }}>
-            {user.role === "teacher" ? "My Classes" : "Joined Classes"}
-          </h2>
-          <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>
-            {user.role === "teacher" ? "Create and manage your classes" : "Access your enrolled classes"}
-          </p>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">My Classes</h1>
+          <p className="text-slate-500 font-medium">Manage your learning workspaces and students.</p>
         </div>
-        
-        {user.role === "teacher" ? (
-          <button
-            onClick={() => setShowCreateClass(true)}
-            style={{
-              backgroundColor: "#2563eb",
-              color: "white",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: "500"
-            }}
-          >
-            Create Class
-          </button>
-        ) : (
+        <div className="flex gap-4">
           <button
             onClick={() => setShowJoinClass(true)}
-            style={{
-              backgroundColor: "#059669",
-              color: "white",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "8px",
-              border: "none",
-              cursor: "pointer",
-              fontWeight: "500"
-            }}
+            className="px-6 py-3 rounded-2xl border-2 border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2 hover:scale-105"
           >
-            Join Class
+            <span>🔗</span> Join Class
           </button>
+          {user.role === "teacher" && (
+            <button
+              onClick={() => setShowCreateClass(true)}
+              className="px-6 py-3 rounded-2xl bg-brand-primary text-white font-bold shadow-lg shadow-brand-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+            >
+              <span>✨</span> Create Class
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {classes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <div className="w-32 h-32 bg-white rounded-[3rem] shadow-2xl flex items-center justify-center text-6xl animate-float">
+              🏫
+            </div>
+            <div className="text-center space-y-3">
+              <h2 className="text-4xl font-black text-slate-900 tracking-tight">Your Digital Workspace</h2>
+              <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
+                Every great journey starts with a single class. Create your first one to begin the EduOS experience.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowJoinClass(true)}
+                className="px-10 py-5 bg-white border-2 border-slate-100 rounded-3xl font-black text-slate-600 hover:bg-slate-50 transition-all shadow-xl shadow-slate-200/50"
+              >
+                JOIN CLASS
+              </button>
+              <button
+                onClick={() => setShowCreateClass(true)}
+                className="px-10 py-5 bg-brand-primary text-white rounded-3xl font-black shadow-2xl shadow-brand-primary/20 hover:scale-105 transition-all"
+              >
+                CREATE FIRST CLASS
+              </button>
+            </div>
+          </div>
+        ) : (
+          classes.map((c) => {
+            return (
+              <div
+                key={c._id}
+                onClick={() => setSelectedClass(c)}
+                className="premium-card group cursor-pointer hover-scale-premium relative overflow-hidden"
+              >
+                {/* Visual Header */}
+                <div className="h-40 bg-slate-900 relative overflow-hidden flex items-end p-8">
+                  {/* Decorative background circle */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-pastel-blue/20 transition-all duration-700"></div>
+
+                  <h3 className="text-2xl font-black text-white relative z-10 tracking-tight leading-tight transition-transform duration-500 group-hover:translate-x-1">
+                    {c.name}
+                  </h3>
+                </div>
+                {/* Content */}
+                <div className="p-8 space-y-6">
+                  <p className="text-slate-500 font-medium line-clamp-2 h-12 leading-relaxed">
+                    {c.description || "No class overview provided. Join now to explore the curriculum."}
+                  </p>
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${c.teacherId === user.email ? "bg-pastel-blue/10 text-pastel-blue border border-pastel-blue/20" : "bg-pastel-purple/10 text-pastel-purple border border-pastel-purple/20"
+                      }`}>
+                      {c.teacherId === user.email ? "Your Class" : "Enrolled"}
+                    </span>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      CODE: {c.code}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
 
-      {classes.length === 0 ? (
-        <div style={{ 
-          textAlign: "center", 
-          padding: "3rem", 
-          backgroundColor: "white", 
-          borderRadius: "12px",
-          border: "1px solid #e5e7eb"
-        }}>
-          <h3 style={{ fontSize: "1.125rem", fontWeight: "600", color: "#111827", marginBottom: "0.5rem" }}>
-            {user.role === "teacher" ? "No classes created yet" : "No classes joined yet"}
-          </h3>
-          <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>
-            {user.role === "teacher" 
-              ? "Create your first class to start sharing assignments with students"
-              : "Join a class using the class code provided by your teacher"
-            }
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.5rem" }}>
-          {classes.map((classData) => (
-            <div
-              key={classData._id}
-              onClick={() => setSelectedClass(classData)}
-              style={{
-                backgroundColor: "white",
-                padding: "1.5rem",
-                borderRadius: "12px",
-                border: "1px solid #e5e7eb",
-                cursor: "pointer",
-                transition: "all 0.2s"
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
-                e.currentTarget.style.borderColor = "#2563eb";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.boxShadow = "none";
-                e.currentTarget.style.borderColor = "#e5e7eb";
-              }}
-            >
-              <h3 style={{ fontSize: "1.125rem", fontWeight: "600", color: "#111827", marginBottom: "0.5rem" }}>
-                {classData.name}
-              </h3>
-              <p style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "1rem" }}>
-                {classData.description || "No description"}
-              </p>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{
-                  backgroundColor: "#f3f4f6",
-                  color: "#374151",
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "4px",
-                  fontSize: "0.75rem",
-                  fontFamily: "monospace"
-                }}>
-                  {classData.code}
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                  Click to open
-                </span>
-              </div>
+      {/* Create Class Modal */}
+      {showCreateClass && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+            <div className="space-y-2 text-center">
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Create New Class</h3>
+              <p className="text-slate-500 font-medium italic">Start a new learning workspace</p>
             </div>
-          ))}
+
+            <div className="space-y-4">
+              <input
+                className="w-full p-5 rounded-3xl bg-slate-50 border-2 border-transparent focus:border-brand-primary outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                placeholder="Class Name (e.g. Advanced AI)"
+                value={newClassName}
+                onChange={(e) => setNewClassName(e.target.value)}
+              />
+              <textarea
+                className="w-full p-5 rounded-3xl bg-slate-50 border-2 border-transparent focus:border-brand-primary outline-none transition-all font-medium text-slate-600 h-32 placeholder:text-slate-300"
+                placeholder="Class Description"
+                value={newClassDescription}
+                onChange={(e) => setNewClassDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowCreateClass(false)}
+                className="flex-1 py-4 font-black text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleCreateClass}
+                className="flex-1 bg-brand-primary text-white py-4 rounded-2xl font-black shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all"
+              >
+                CREATE
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {showCreateClass && <CreateClassModal onClose={() => setShowCreateClass(false)} />}
-      {showJoinClass && <JoinClassModal onClose={() => setShowJoinClass(false)} />}
-    </div>
-  );
-}
+      {/* Join Class Modal */}
+      {showJoinClass && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+            <div className="space-y-2 text-center">
+              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Join a Class</h3>
+              <p className="text-slate-500 font-medium italic">Enter your unique class code</p>
+            </div>
 
-function CreateClassModal({ onClose }: { onClose: () => void }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const createClass = useMutation(api.myFunctions.createClass);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await createClass({ name, description });
-      onClose();
-    } catch (error) {
-      console.error("Failed to create class:", error);
-    }
-  };
-
-  return (
-    <div style={{ position: "fixed", inset: "0", backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "50" }}>
-      <div style={{ backgroundColor: "white", padding: "2rem", borderRadius: "12px", maxWidth: "28rem", width: "100%", margin: "1rem" }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1.5rem" }}>Create New Class</h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", marginBottom: "0.5rem" }}>
-              Class Name
-            </label>
             <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              style={{ width: "100%", padding: "0.75rem", border: "1px solid #d1d5db", borderRadius: "6px" }}
-              placeholder="e.g., Mathematics Grade 10"
-            />
-          </div>
-          
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", marginBottom: "0.5rem" }}>
-              Description (Optional)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              style={{ width: "100%", padding: "0.75rem", border: "1px solid #d1d5db", borderRadius: "6px", minHeight: "80px" }}
-              placeholder="Brief description of the class"
-            />
-          </div>
-          
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button
-              type="submit"
-              style={{ flex: "1", backgroundColor: "#2563eb", color: "white", padding: "0.75rem", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "500" }}
-            >
-              Create Class
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{ flex: "1", backgroundColor: "#f3f4f6", color: "#374151", padding: "0.75rem", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "500" }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function JoinClassModal({ onClose }: { onClose: () => void }) {
-  const [code, setCode] = useState("");
-  const joinClass = useMutation(api.myFunctions.joinClass);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await joinClass({ code: code.toUpperCase() });
-      onClose();
-    } catch (error) {
-      console.error("Failed to join class:", error);
-      alert("Failed to join class. Please check the class code.");
-    }
-  };
-
-  return (
-    <div style={{ position: "fixed", inset: "0", backgroundColor: "rgba(0, 0, 0, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "50" }}>
-      <div style={{ backgroundColor: "white", padding: "2rem", borderRadius: "12px", maxWidth: "24rem", width: "100%", margin: "1rem" }}>
-        <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1.5rem" }}>Join Class</h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", marginBottom: "0.5rem" }}>
-              Class Code
-            </label>
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              required
-              style={{ width: "100%", padding: "0.75rem", border: "1px solid #d1d5db", borderRadius: "6px", fontFamily: "monospace", textAlign: "center", fontSize: "1.125rem" }}
-              placeholder="Enter 6-digit code"
+              className="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-brand-primary rounded-3xl outline-none transition-all font-black text-center text-3xl tracking-widest text-slate-700 placeholder:text-slate-200"
+              placeholder="CODE"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               maxLength={6}
             />
-          </div>
-          
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button
-              type="submit"
-              style={{ flex: "1", backgroundColor: "#059669", color: "white", padding: "0.75rem", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "500" }}
-            >
-              Join Class
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{ flex: "1", backgroundColor: "#f3f4f6", color: "#374151", padding: "0.75rem", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "500" }}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
-function ClassView({ classData, user, onBack }: { classData: any; user: any; onBack: () => void }) {
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
-        <button
-          onClick={onBack}
-          style={{ backgroundColor: "#f3f4f6", color: "#374151", padding: "0.5rem", borderRadius: "6px", border: "none", cursor: "pointer" }}
-        >
-          ← Back
-        </button>
-        <div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: "600", color: "#111827" }}>{classData.name}</h2>
-          <p style={{ fontSize: "0.875rem", color: "#6b7280" }}>Class Code: {classData.code}</p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowJoinClass(false)}
+                className="flex-1 py-4 font-black text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleJoinClass}
+                className="flex-1 bg-brand-primary text-white py-4 rounded-2xl font-black shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all"
+              >
+                JOIN
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <div style={{ backgroundColor: "white", padding: "2rem", borderRadius: "12px", border: "1px solid #e5e7eb", textAlign: "center" }}>
-        <h3 style={{ fontSize: "1.125rem", fontWeight: "600", marginBottom: "0.5rem" }}>Class Content</h3>
-        <p style={{ color: "#6b7280" }}>
-          {user.role === "teacher" 
-            ? "Upload assignments and materials for your students"
-            : "View assignments and submit your work"
-          }
-        </p>
-      </div>
+      )}
     </div>
   );
 }

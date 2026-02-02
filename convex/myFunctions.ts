@@ -317,13 +317,20 @@ export const generateUploadUrl = mutation({
 });
 
 export const getLearningPath = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) return [];
     const user = data.user;
 
-    const units = await ctx.db.query("units").withIndex("order").collect();
+    const units = await ctx.db
+      .query("units")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    // sorting by order manually since we used class index
+    units.sort((a, b) => a.order - b.order);
+
     const lessons = await ctx.db.query("lessons").withIndex("order").collect();
     const progress = await ctx.db
       .query("userProgress")
@@ -376,8 +383,36 @@ export const completeLesson = mutation({
 });
 
 export const getLeaderboard = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { classId: v.optional(v.id("classes")) },
+  handler: async (ctx, { classId }) => {
+    if (classId) {
+      // Get class members
+      const memberships = await ctx.db
+        .query("classMembers")
+        .withIndex("class", (q) => q.eq("classId", classId))
+        .collect();
+
+      const members = [];
+      for (const membership of memberships) {
+        const student = await ctx.db
+          .query("users")
+          .withIndex("email", (q) => q.eq("email", membership.studentId))
+          .first();
+        if (student) members.push(student);
+      }
+
+      // Sort by XP
+      return members
+        .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+        .slice(0, 10)
+        .map((u) => ({
+          _id: u._id,
+          name: u.name,
+          xp: u.xp || 0,
+          image: u.image,
+        }));
+    }
+
     const users = await ctx.db
       .query("users")
       .withIndex("xp")
@@ -394,13 +429,19 @@ export const getLeaderboard = query({
 });
 
 export const adminCreateUnit = mutation({
-  args: { title: v.string(), description: v.string(), order: v.number() },
+  args: {
+    classId: v.id("classes"),
+    title: v.string(),
+    description: v.string(),
+    order: v.number(),
+  },
   handler: async (ctx, args) => {
-    const data = await getCurrentUserData(ctx);
-    if (!data || !data.user || data.user.role !== "teacher") {
-      throw new Error("Only teachers can create units");
-    }
-    return await ctx.db.insert("units", args);
+    await ctx.db.insert("units", {
+      classId: args.classId,
+      title: args.title,
+      description: args.description,
+      order: args.order,
+    });
   },
 });
 
@@ -418,5 +459,52 @@ export const adminCreateLesson = mutation({
       throw new Error("Only teachers can create lessons");
     }
     return await ctx.db.insert("lessons", args);
+  },
+});
+
+export const getClassById = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    return await ctx.db.get(classId);
+  },
+});
+
+export const getClassMembers = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const memberships = await ctx.db
+      .query("classMembers")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    const members = [];
+    for (const membership of memberships) {
+      const student = await ctx.db
+        .query("users")
+        .withIndex("email", (q) => q.eq("email", membership.studentId))
+        .first();
+      if (student) members.push(student);
+    }
+    return members;
+  },
+});
+
+export const getStreamEntries = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const files = await ctx.db
+      .query("files")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    // Sort by creation time (most recent first)
+    return files.sort((a, b) => b._creationTime - a._creationTime);
+  },
+});
+
+export const getFileUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    return await ctx.storage.getUrl(storageId);
   },
 });

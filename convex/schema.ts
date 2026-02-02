@@ -49,10 +49,11 @@ export default defineSchema({
   }).index("assignment", ["assignmentId"]).index("student", ["studentId"]),
 
   units: defineTable({
+    classId: v.id("classes"),
     title: v.string(),
     description: v.string(),
     order: v.number(),
-  }).index("order", ["order"]),
+  }).index("class", ["classId"]).index("order", ["order"]),
 
   lessons: defineTable({
     unitId: v.id("units"),

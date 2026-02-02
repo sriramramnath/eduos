@@ -1,8 +1,14 @@
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useState } from "react";
+import { Id } from "../../convex/_generated/dataModel";
 
-export function UploadButton() {
+interface UploadButtonProps {
+  classId: Id<"classes">;
+  isAssignment?: boolean;
+}
+
+export function UploadButton({ classId, isAssignment = false }: UploadButtonProps) {
   const [uploading, setUploading] = useState(false);
   const generateUploadUrl = useMutation(api.myFunctions.generateUploadUrl);
   const uploadFile = useMutation(api.myFunctions.uploadFile);
@@ -13,28 +19,26 @@ export function UploadButton() {
 
     setUploading(true);
     try {
-      // Get upload URL from Convex
       const uploadUrl = await generateUploadUrl();
-      
-      // Upload file to Convex storage
+
       const result = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": file.type },
         body: file,
       });
-      
+
       const { storageId } = await result.json();
-      
-      // Save file metadata to database
+
       await uploadFile({
         name: file.name,
         type: file.type,
         mimeType: file.type,
         size: file.size,
         storageId,
+        classId,
+        isAssignment,
       });
-      
-      // Reset input
+
       event.target.value = "";
     } catch (error) {
       console.error("Upload failed:", error);
@@ -44,21 +48,21 @@ export function UploadButton() {
   };
 
   return (
-    <div>
+    <div className="flex items-center">
       <input
         type="file"
         onChange={handleFileUpload}
         disabled={uploading}
         className="hidden"
-        id="file-upload"
+        id={`file-upload-${classId}`}
       />
       <label
-        htmlFor="file-upload"
-        className={`bg-blue-600 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-700 ${
-          uploading ? "opacity-50 cursor-not-allowed" : ""
-        }`}
+        htmlFor={`file-upload-${classId}`}
+        className={`flex items-center gap-3 bg-brand-primary text-white px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-brand-primary/20 transition-all hover:scale-105 active:scale-95 cursor-pointer ${uploading ? "opacity-50 cursor-not-allowed" : ""
+          }`}
       >
-        {uploading ? "Uploading..." : "Upload File"}
+        <span>{uploading ? "⌛" : "➕"}</span>
+        {uploading ? "UPLOADING..." : isAssignment ? "ASSIGN RESOURCE" : "SHARE RESOURCE"}
       </label>
     </div>
   );
