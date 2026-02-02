@@ -7,34 +7,34 @@ import * as React from "react";
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
 import { Onboarding } from "./components/Onboarding";
+import { Sidebar } from "./components/Sidebar";
+import { LearningPath } from "./components/LearningPath";
+import { Scoreboard } from "./components/Scoreboard";
 
 export default function App() {
   const user = useQuery(api.myFunctions.getCurrentUser);
   const identity = useQuery(api.myFunctions.getAuthenticatedUser);
-  
-  console.log("App rendering, user:", user, "identity:", identity);
-  console.log("User role:", user?.role);
-  console.log("User profile picture:", user?.profilePicture);
-  
+
   if (user === undefined || identity === undefined) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand-primary border-t-transparent"></div>
+      </div>
+    );
   }
-  
-  // Not authenticated at all
+
   if (!identity) {
     return <Registration />;
   }
-  
-  // Authenticated but no user record - create one
+
   if (!user) {
     return <AutoRegister identity={identity} />;
   }
-  
-  // User exists but no role - show onboarding
+
   if (!user.role) {
     return <RoleOnboarding user={user} />;
   }
-  
+
   return <Dashboard user={user} />;
 }
 
@@ -42,7 +42,7 @@ function RoleOnboarding({ user }: { user: any }) {
   const updateUserRole = useMutation(api.myFunctions.updateUserRole);
   const [role, setRole] = useState<"student" | "teacher">("student");
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   const handleRoleSelection = async () => {
     try {
       setIsUpdating(true);
@@ -54,101 +54,48 @@ function RoleOnboarding({ user }: { user: any }) {
   };
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ 
-        backgroundColor: "white", 
-        padding: "3rem", 
-        borderRadius: "12px", 
-        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-        maxWidth: "28rem",
-        width: "100%",
-        margin: "1rem"
-      }}>
-        <h1 style={{ 
-          fontSize: "1.875rem", 
-          fontWeight: "bold", 
-          marginBottom: "0.5rem",
-          color: "#111827",
-          textAlign: "center"
-        }}>
-          Welcome to EduOS
-        </h1>
-        <p style={{ 
-          color: "#6b7280", 
-          marginBottom: "2rem",
-          textAlign: "center"
-        }}>
-          Hi {user.name}! Please select your role to get started.
-        </p>
-        
-        <div style={{ marginBottom: "2rem" }}>
-          <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", color: "#374151", marginBottom: "1rem" }}>
-            I am a...
-          </label>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <label style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              gap: "0.75rem", 
-              cursor: "pointer",
-              padding: "1rem",
-              border: role === "student" ? "2px solid #2563eb" : "1px solid #d1d5db",
-              borderRadius: "8px",
-              backgroundColor: role === "student" ? "#eff6ff" : "white"
-            }}>
-              <input
-                type="radio"
-                value="student"
-                checked={role === "student"}
-                onChange={(e) => setRole(e.target.value as "student")}
-                style={{ margin: 0 }}
-              />
+    <main className="min-h-screen gradient-bg flex items-center justify-center p-6">
+      <div className="glass max-w-lg w-full p-10 rounded-[2.5rem] shadow-2xl space-y-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-black text-slate-900 mb-2">Welcome, {user.name.split(' ')[0]}!</h1>
+          <p className="text-slate-500 font-medium">Choose your path to begin your journey.</p>
+        </div>
+
+        <div className="space-y-4">
+          <label className="block text-sm font-bold text-slate-700 uppercase tracking-widest ml-1">Profile Role</label>
+          <div className="grid grid-cols-1 gap-4">
+            <button
+              onClick={() => setRole("student")}
+              className={`flex items-center gap-4 p-6 rounded-3xl border-2 transition-all text-left ${role === "student" ? "bg-brand-primary border-brand-primary text-white shadow-xl shadow-brand-primary/30" : "bg-white/50 border-slate-200 text-slate-600 hover:border-brand-primary/30"
+                }`}
+            >
+              <span className="text-3xl">🎓</span>
               <div>
-                <div style={{ fontWeight: "500", color: "#111827" }}>Student</div>
-                <div style={{ fontSize: "0.875rem", color: "#6b7280" }}>Join classes and access assignments</div>
+                <div className="font-black text-lg">Student</div>
+                <div className={`text-sm ${role === "student" ? "text-white/80" : "text-slate-400"}`}>Discover, learn, and earn XP.</div>
               </div>
-            </label>
-            <label style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              gap: "0.75rem", 
-              cursor: "pointer",
-              padding: "1rem",
-              border: role === "teacher" ? "2px solid #2563eb" : "1px solid #d1d5db",
-              borderRadius: "8px",
-              backgroundColor: role === "teacher" ? "#eff6ff" : "white"
-            }}>
-              <input
-                type="radio"
-                value="teacher"
-                checked={role === "teacher"}
-                onChange={(e) => setRole(e.target.value as "teacher")}
-                style={{ margin: 0 }}
-              />
+            </button>
+
+            <button
+              onClick={() => setRole("teacher")}
+              className={`flex items-center gap-4 p-6 rounded-3xl border-2 transition-all text-left ${role === "teacher" ? "bg-brand-primary border-brand-primary text-white shadow-xl shadow-brand-primary/30" : "bg-white/50 border-slate-200 text-slate-600 hover:border-brand-primary/30"
+                }`}
+            >
+              <span className="text-3xl">🍎</span>
               <div>
-                <div style={{ fontWeight: "500", color: "#111827" }}>Teacher</div>
-                <div style={{ fontSize: "0.875rem", color: "#6b7280" }}>Create and manage classes</div>
+                <div className="font-black text-lg">Teacher</div>
+                <div className={`text-sm ${role === "teacher" ? "text-white/80" : "text-slate-400"}`}>Guide, inspire, and manage units.</div>
               </div>
-            </label>
+            </button>
           </div>
         </div>
-        
+
         <button
           onClick={handleRoleSelection}
           disabled={isUpdating}
-          style={{ 
-            width: "100%", 
-            backgroundColor: isUpdating ? "#9ca3af" : "#2563eb", 
-            color: "white", 
-            padding: "0.75rem 1.5rem", 
-            borderRadius: "8px", 
-            border: "none", 
-            cursor: isUpdating ? "not-allowed" : "pointer",
-            fontSize: "1rem",
-            fontWeight: "500"
-          }}
+          className="w-full gradient-bg text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 transform hover:-translate-y-1 active:translate-y-0"
         >
-          {isUpdating ? "Setting up..." : "Continue"}
+          {isUpdating ? "PREPARING..." : "ENTER EDUOS"}
         </button>
       </div>
     </main>
@@ -157,132 +104,15 @@ function RoleOnboarding({ user }: { user: any }) {
 
 function AutoRegister({ identity }: { identity: any }) {
   const registerUser = useMutation(api.myFunctions.autoRegisterUser);
-  
+
   React.useEffect(() => {
     registerUser({ name: identity.name || "User" });
   }, []);
 
   return (
-    <div style={{ 
-      minHeight: "100vh", 
-      backgroundColor: "#f8fafc", 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center" 
-    }}>
-      <div>Setting up your account...</div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-slate-400 font-bold tracking-widest animate-pulse">SETTING UP ACCOUNT...</div>
     </div>
-  );
-}
-
-function UserRegistration({ identity }: { identity: any }) {
-  const registerUser = useMutation(api.myFunctions.registerUser);
-  const [name, setName] = useState(identity.name || "");
-  const [role, setRole] = useState<"student" | "teacher">("student");
-  const [isRegistering, setIsRegistering] = useState(false);
-  
-  const handleRegister = async () => {
-    try {
-      setIsRegistering(true);
-      await registerUser({ name, role });
-    } catch (error) {
-      console.error("Registration failed:", error);
-      setIsRegistering(false);
-    }
-  };
-
-  return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ 
-        backgroundColor: "white", 
-        padding: "3rem", 
-        borderRadius: "12px", 
-        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-        maxWidth: "28rem",
-        width: "100%",
-        margin: "1rem"
-      }}>
-        <h1 style={{ 
-          fontSize: "1.875rem", 
-          fontWeight: "bold", 
-          marginBottom: "0.5rem",
-          color: "#111827",
-          textAlign: "center"
-        }}>
-          Complete Your Registration
-        </h1>
-        <p style={{ 
-          color: "#6b7280", 
-          marginBottom: "2rem",
-          textAlign: "center"
-        }}>
-          Welcome {identity.name}! Tell us a bit about yourself.
-        </p>
-        
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", color: "#374151", marginBottom: "0.5rem" }}>
-            Full Name
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ 
-              width: "100%", 
-              padding: "0.75rem", 
-              border: "1px solid #d1d5db", 
-              borderRadius: "6px",
-              fontSize: "1rem"
-            }}
-            placeholder="Enter your full name"
-          />
-        </div>
-        
-        <div style={{ marginBottom: "2rem" }}>
-          <label style={{ display: "block", fontSize: "0.875rem", fontWeight: "500", color: "#374151", marginBottom: "0.5rem" }}>
-            I am a...
-          </label>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-              <input
-                type="radio"
-                value="student"
-                checked={role === "student"}
-                onChange={(e) => setRole(e.target.value as "student")}
-              />
-              Student
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-              <input
-                type="radio"
-                value="teacher"
-                checked={role === "teacher"}
-                onChange={(e) => setRole(e.target.value as "teacher")}
-              />
-              Teacher
-            </label>
-          </div>
-        </div>
-        
-        <button
-          onClick={handleRegister}
-          disabled={!name.trim() || isRegistering}
-          style={{ 
-            width: "100%", 
-            backgroundColor: (!name.trim() || isRegistering) ? "#9ca3af" : "#2563eb", 
-            color: "white", 
-            padding: "0.75rem 1.5rem", 
-            borderRadius: "8px", 
-            border: "none", 
-            cursor: (!name.trim() || isRegistering) ? "not-allowed" : "pointer",
-            fontSize: "1rem",
-            fontWeight: "500"
-          }}
-        >
-          {isRegistering ? "Registering..." : "Complete Registration"}
-        </button>
-      </div>
-    </main>
   );
 }
 
@@ -301,54 +131,35 @@ function Registration() {
   };
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ 
-        backgroundColor: "white", 
-        padding: "3rem", 
-        borderRadius: "12px", 
-        boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-        maxWidth: "24rem",
-        width: "100%",
-        margin: "1rem"
-      }}>
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h1 style={{ 
-            fontSize: "2.25rem", 
-            fontWeight: "bold", 
-            marginBottom: "0.5rem",
-            color: "#111827"
-          }}>
-            EduOS
-          </h1>
-          <p style={{ 
-            color: "#6b7280", 
-            fontSize: "1rem",
-            lineHeight: "1.5"
-          }}>
-            File-native education platform
+    <main className="min-h-screen gradient-bg flex items-center justify-center p-6">
+      <div className="glass max-w-sm w-full p-12 rounded-[3rem] shadow-2xl text-center space-y-10">
+        <div>
+          <h1 className="text-5xl font-black text-slate-900 mb-2 tracking-tighter">EduOS</h1>
+          <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs">Version 2.0</p>
+        </div>
+
+        <div className="space-y-6">
+          <div className="w-24 h-24 gradient-bg rounded-3xl mx-auto flex items-center justify-center shadow-xl rotate-3">
+            <span className="text-4xl">🚀</span>
+          </div>
+          <p className="text-slate-600 font-medium px-4 leading-relaxed">
+            The next generation of file-native gamified learning.
           </p>
         </div>
-        
+
         <button
           onClick={handleSignIn}
           disabled={isSigningIn}
-          style={{ 
-            width: "100%", 
-            backgroundColor: isSigningIn ? "#9ca3af" : "#2563eb", 
-            color: "white", 
-            padding: "0.75rem 1.5rem", 
-            borderRadius: "8px", 
-            border: "none", 
-            cursor: isSigningIn ? "not-allowed" : "pointer",
-            fontSize: "1rem",
-            fontWeight: "500",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem"
-          }}
+          className="w-full bg-white text-slate-900 border-2 border-slate-100 py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:border-brand-primary/20 transition-all disabled:opacity-50"
         >
-          {isSigningIn ? "Signing in..." : "Sign in with Google"}
+          {isSigningIn ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-brand-primary border-t-transparent"></div>
+          ) : (
+            <>
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+              Sign in with Google
+            </>
+          )}
         </button>
       </div>
     </main>
@@ -356,98 +167,51 @@ function Registration() {
 }
 
 function Dashboard({ user }: { user: any }) {
-  const { signOut } = useAuthActions();
   const classes = useQuery(api.myFunctions.getMyClasses) || [];
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [activeTab, setActiveTab] = useState("path");
 
   if (showOnboarding) {
     return (
-      <Onboarding 
-        user={user} 
-        onComplete={() => setShowOnboarding(false)} 
+      <Onboarding
+        user={user}
+        onComplete={() => setShowOnboarding(false)}
       />
     );
   }
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#f8fafc" }}>
-      <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "2rem" }}>
-        <header style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          marginBottom: "3rem",
-          paddingBottom: "1.5rem",
-          borderBottom: "1px solid #e5e7eb"
-        }}>
+    <div className="flex min-h-screen bg-slate-50">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
+
+      <main className="flex-1 p-10">
+        <header className="flex justify-between items-center mb-10">
           <div>
-            <h1 style={{ 
-              fontSize: "2.25rem", 
-              fontWeight: "bold",
-              color: "#111827",
-              marginBottom: "0.25rem"
-            }}>
-              EduOS
-            </h1>
-            <p style={{ 
-              color: "#6b7280", 
-              fontSize: "1rem"
-            }}>
-              {user.role === "teacher" ? "Manage your classes and assignments" : "Access your classes and assignments"}
-            </p>
+            <h2 className="text-3xl font-black text-slate-900 capitalize">{activeTab.replace('-', ' ')}</h2>
+            <p className="text-slate-500 font-medium">Welcome back, {user.name.split(' ')[0]}!</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <img 
-              src={user.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&size=40&background=2563eb&color=ffffff&bold=true`}
-              alt={user.name}
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                border: "2px solid #e5e7eb"
-              }}
-            />
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-              <span style={{ 
-                fontSize: "0.875rem", 
-                color: "#111827",
-                fontWeight: "600"
-              }}>
-                {user.name}
-              </span>
-              <span style={{ 
-                padding: "0.25rem 0.5rem", 
-                backgroundColor: user.role === "teacher" ? "#fef3c7" : "#eff6ff", 
-                color: user.role === "teacher" ? "#92400e" : "#1d4ed8", 
-                borderRadius: "4px", 
-                fontSize: "0.75rem",
-                textTransform: "capitalize",
-                fontWeight: "500",
-                border: `1px solid ${user.role === "teacher" ? "#fde68a" : "#dbeafe"}`
-              }}>
-                {user.role}
-              </span>
+
+          <div className="flex items-center gap-6 glass px-6 py-3 rounded-2xl shadow-sm border-slate-200">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">✨</span>
+              <span className="text-lg font-black gradient-text">{(user.xp || 0).toLocaleString()}</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">XP</span>
             </div>
-            <button
-              onClick={() => signOut()}
-              style={{ 
-                fontSize: "0.875rem", 
-                color: "#6b7280", 
-                background: "none", 
-                border: "none", 
-                cursor: "pointer",
-                padding: "0.5rem",
-                borderRadius: "4px",
-                fontWeight: "500"
-              }}
-            >
-              Sign out
-            </button>
+            <div className="w-px h-6 bg-slate-200" />
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🔥</span>
+              <span className="text-lg font-black text-orange-500">3</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">DAY STREAK</span>
+            </div>
           </div>
         </header>
 
-        <ClassDashboard user={user} classes={classes} />
-      </div>
-    </main>
+        <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {activeTab === "files" && <ClassDashboard user={user} classes={classes} />}
+          {activeTab === "path" && <LearningPath user={user} />}
+          {activeTab === "scoreboard" && <Scoreboard />}
+        </section>
+      </main>
+    </div>
   );
 }

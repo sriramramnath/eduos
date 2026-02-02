@@ -4,14 +4,15 @@ import { authTables } from "@convex-dev/auth/server";
 
 export default defineSchema({
   ...authTables,
-  
+
   users: defineTable({
     email: v.string(),
     name: v.string(),
     role: v.optional(v.union(v.literal("student"), v.literal("teacher"))),
     emailVerificationTime: v.optional(v.number()),
     image: v.optional(v.string()),
-  }).index("email", ["email"]),
+    xp: v.optional(v.number()),
+  }).index("email", ["email"]).index("xp", ["xp"]),
 
   classes: defineTable({
     name: v.string(),
@@ -46,4 +47,24 @@ export default defineSchema({
     content: v.optional(v.string()),
     submittedAt: v.number(),
   }).index("assignment", ["assignmentId"]).index("student", ["studentId"]),
+
+  units: defineTable({
+    title: v.string(),
+    description: v.string(),
+    order: v.number(),
+  }).index("order", ["order"]),
+
+  lessons: defineTable({
+    unitId: v.id("units"),
+    title: v.string(),
+    content: v.string(),
+    order: v.number(),
+    xpAward: v.number(),
+  }).index("unit", ["unitId"]).index("order", ["order"]),
+
+  userProgress: defineTable({
+    userId: v.string(), // email or user lookup
+    lessonId: v.id("lessons"),
+    completedAt: v.number(),
+  }).index("user", ["userId"]).index("lesson", ["lessonId"]),
 });
