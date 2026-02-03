@@ -508,3 +508,24 @@ export const getFileUrl = query({
     return await ctx.storage.getUrl(storageId);
   },
 });
+export const updateClassBanner = mutation({
+  args: {
+    classId: v.id("classes"),
+    bannerStorageId: v.id("_storage"),
+  },
+  handler: async (ctx, { classId, bannerStorageId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+
+    const classDoc = await ctx.db.get(classId);
+    if (!classDoc) throw new Error("Class not found");
+
+    // Security check: only the teacher of this class can update the banner
+    if (classDoc.teacherId !== data.user.email) {
+      throw new Error("Only the teacher of this class can update the banner");
+    }
+
+    await ctx.db.patch(classId, { bannerStorageId });
+    return { success: true };
+  },
+});

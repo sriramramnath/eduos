@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
+import { Trophy, Medal } from "lucide-react";
 
 interface ScoreboardProps {
     classId?: Id<"classes">;
@@ -18,27 +19,27 @@ export function Scoreboard({ classId }: ScoreboardProps) {
 
             <div className="space-y-6">
                 {leaderboard.length === 0 ? (
-                    <div className="text-center py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-100">
-                        <p className="text-slate-400 font-bold italic">Competition hasn't started yet! Be the first to earn XP.</p>
+                    <div className="text-center py-20 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                        <p className="text-slate-400 font-medium text-sm italic">Competition hasn't started yet! Be the first to earn XP.</p>
                     </div>
                 ) : (
                     leaderboard.map((u, idx) => (
                         <div
                             key={u._id}
-                            className={`premium-card flex items-center gap-8 p-8 ${idx === 0
-                                ? "ring-4 ring-pastel-blue/20 scale-105"
+                            className={`premium-card flex items-center gap-6 p-6 ${idx === 0
+                                ? "border-brand-primary/20 bg-brand-primary/[0.02]"
                                 : ""
                                 }`}
                         >
-                            <div className={`flex items-center justify-center w-14 h-14 rounded-2xl font-black text-xl shadow-inner ${idx === 0 ? "bg-pastel-blue text-white" : "bg-slate-50 text-slate-400"
+                            <div className={`flex items-center justify-center w-12 h-12 rounded-xl font-bold text-lg ${idx === 0 ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20" : "bg-slate-50 text-slate-400"
                                 }`}>
-                                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                                {idx === 0 ? <Trophy className="w-6 h-6" /> : idx === 1 ? <Medal className="w-6 h-6 text-slate-400" /> : idx === 2 ? <Medal className="w-6 h-6 text-amber-600/50" /> : <span className="text-sm">#{idx + 1}</span>}
                             </div>
 
                             <img
-                                src={u.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&size=80&background=111827&color=ffffff&bold=true`}
+                                src={u.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&size=80&background=f1f5f9&color=64748b&bold=true`}
                                 alt={u.name}
-                                className="w-20 h-20 rounded-3xl border-4 border-white shadow-xl"
+                                className="w-16 h-16 rounded-xl border-2 border-white shadow-md"
                             />
 
                             <div className="flex-1 min-w-0">
@@ -51,8 +52,8 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                             </div>
 
                             <div className="text-right">
-                                <div className="text-3xl font-black text-slate-900 leading-none">{u.xp.toLocaleString()}</div>
-                                <div className="text-[10px] font-black text-pastel-blue uppercase tracking-widest mt-2 px-3 py-1 bg-pastel-blue/10 rounded-full border border-pastel-blue/20">TOTAL XP</div>
+                                <div className="text-2xl font-black text-slate-900 leading-none">{u.xp.toLocaleString()}</div>
+                                <div className="text-[10px] font-bold text-brand-primary uppercase tracking-widest mt-2 px-3 py-1 bg-brand-primary/5 rounded-lg border border-brand-primary/10">TOTAL XP</div>
                             </div>
                         </div>
                     ))

@@ -2,6 +2,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useState } from "react";
 import { Id } from "../../convex/_generated/dataModel";
+import { Upload, Loader2 } from "lucide-react";
 
 interface UploadButtonProps {
   classId: Id<"classes">;
@@ -58,10 +59,14 @@ export function UploadButton({ classId, isAssignment = false }: UploadButtonProp
       />
       <label
         htmlFor={`file-upload-${classId}`}
-        className={`flex items-center gap-3 bg-brand-primary text-white px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-brand-primary/20 transition-all hover:scale-105 active:scale-95 cursor-pointer ${uploading ? "opacity-50 cursor-not-allowed" : ""
+        className={`flex items-center gap-3 bg-brand-primary text-white px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md shadow-brand-primary/10 transition-all hover:translate-y-[-1px] active:translate-y-[0px] cursor-pointer ${uploading ? "opacity-70 cursor-not-allowed" : ""
           }`}
       >
-        <span>{uploading ? "⌛" : "➕"}</span>
+        {uploading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Upload className="w-4 h-4" />
+        )}
         {uploading ? "UPLOADING..." : isAssignment ? "ASSIGN RESOURCE" : "SHARE RESOURCE"}
       </label>
     </div>

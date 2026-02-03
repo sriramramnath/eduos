@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Doc } from "../../convex/_generated/dataModel";
 import { FileViewer } from "./FileViewer";
 import { AssignmentModal } from "./AssignmentModal";
+import { FileText, FileSpreadsheet, Presentation, FileImage, Film, Folder, Eye, Pin, File } from "lucide-react";
 
 interface FileGridProps {
   files: Doc<"files">[];
@@ -13,22 +14,25 @@ export function FileGrid({ files, userRole }: FileGridProps) {
   const [assignmentFile, setAssignmentFile] = useState<Doc<"files"> | null>(null);
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.includes("word")) return "📄";
-    if (mimeType.includes("presentation")) return "📊";
-    if (mimeType.includes("sheet")) return "📈";
-    if (mimeType.includes("pdf")) return "📕";
-    if (mimeType.includes("image")) return "🖼️";
-    if (mimeType.includes("video")) return "🎥";
-    return "📁";
+    const iconClass = "w-6 h-6";
+    if (mimeType.includes("word")) return <FileText className={iconClass} />;
+    if (mimeType.includes("presentation")) return <Presentation className={iconClass} />;
+    if (mimeType.includes("sheet")) return <FileSpreadsheet className={iconClass} />;
+    if (mimeType.includes("pdf")) return <FileText className={`${iconClass} text-red-500`} />;
+    if (mimeType.includes("image")) return <FileImage className={iconClass} />;
+    if (mimeType.includes("video")) return <Film className={iconClass} />;
+    return <File className={iconClass} />;
   };
 
   if (files.length === 0) {
     return (
-      <div className="text-center py-24 rounded-[3rem] bg-slate-50 border-2 border-dashed border-slate-100">
-        <div className="text-5xl mb-4">📂</div>
+      <div className="text-center py-20 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+        <div className="flex justify-center mb-4 text-slate-300">
+          <Folder className="w-12 h-12" />
+        </div>
         <p className="text-slate-400 font-bold italic">No files shared yet in this workspace.</p>
         {userRole !== "student" && (
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 mt-4">Upload resources to get started</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 mt-3">Upload resources to get started</p>
         )}
       </div>
     );
@@ -42,36 +46,36 @@ export function FileGrid({ files, userRole }: FileGridProps) {
             key={file._id}
             className="premium-card p-6 flex flex-col group"
           >
-            <div className="flex items-start gap-5 mb-8">
-              <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner border border-slate-100 group-hover:bg-pastel-blue group-hover:text-white transition-all">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-brand-primary group-hover:text-white transition-all">
                 {getFileIcon(file.mimeType)}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-black text-slate-900 truncate tracking-tight">{file.name}</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                <h3 className="text-base font-black text-slate-900 truncate tracking-tight">{file.name}</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
                 {file.editable && (
-                  <span className="inline-block mt-3 px-3 py-1 bg-pastel-green/10 text-pastel-green text-[10px] font-black uppercase tracking-widest rounded-full border border-pastel-green/20">
+                  <span className="inline-block mt-2 px-2 py-0.5 bg-green-50 text-green-600 text-[9px] font-black uppercase tracking-widest rounded-md border border-green-100">
                     Editable
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => setSelectedFile(file)}
-                className="flex-[2] bg-brand-primary text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/20 hover:scale-105 transition-all"
+                className="flex-[2] bg-brand-primary text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md shadow-brand-primary/10 hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
               >
-                View
+                <Eye className="w-3.5 h-3.5" /> View
               </button>
               {userRole !== "student" && (
                 <button
                   onClick={() => setAssignmentFile(file)}
-                  className="flex-1 bg-pastel-green text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-pastel-green/20 hover:scale-105 transition-all flex items-center justify-center"
+                  className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md shadow-slate-900/10 hover:translate-y-[-1px] transition-all flex items-center justify-center"
                 >
-                  📌
+                  <Pin className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { ClassView } from "./ClassView";
+import { Link, Plus, School } from "lucide-react";
 
 interface ClassDashboardProps {
   user: any;
@@ -54,16 +55,16 @@ export function ClassDashboard({ user, classes }: ClassDashboardProps) {
         <div className="flex gap-4">
           <button
             onClick={() => setShowJoinClass(true)}
-            className="px-6 py-3 rounded-2xl border-2 border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2 hover:scale-105"
+            className="px-6 py-3 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2 hover:translate-y-[-1px]"
           >
-            <span>🔗</span> Join Class
+            <Link className="w-4 h-4" /> Join Class
           </button>
           {user.role === "teacher" && (
             <button
               onClick={() => setShowCreateClass(true)}
-              className="px-6 py-3 rounded-2xl bg-brand-primary text-white font-bold shadow-lg shadow-brand-primary/20 hover:scale-105 transition-all flex items-center gap-2"
+              className="px-6 py-3 rounded-xl bg-brand-primary text-white font-bold shadow-md shadow-brand-primary/10 hover:translate-y-[-1px] transition-all flex items-center gap-2"
             >
-              <span>✨</span> Create Class
+              <Plus className="w-4 h-4" /> Create Class
             </button>
           )}
         </div>
@@ -71,26 +72,26 @@ export function ClassDashboard({ user, classes }: ClassDashboardProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
         {classes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="w-32 h-32 bg-white rounded-[3rem] shadow-2xl flex items-center justify-center text-6xl animate-float">
-              🏫
+          <div className="flex flex-col items-center justify-center py-32 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="w-24 h-24 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100">
+              <School className="w-12 h-12" />
             </div>
-            <div className="text-center space-y-3">
-              <h2 className="text-4xl font-black text-slate-900 tracking-tight">Your Digital Workspace</h2>
-              <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Your Digital Workspace</h2>
+              <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed text-sm">
                 Every great journey starts with a single class. Create your first one to begin the EduOS experience.
               </p>
             </div>
             <div className="flex gap-4">
               <button
                 onClick={() => setShowJoinClass(true)}
-                className="px-10 py-5 bg-white border-2 border-slate-100 rounded-3xl font-black text-slate-600 hover:bg-slate-50 transition-all shadow-xl shadow-slate-200/50"
+                className="px-8 py-4 bg-white border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-all text-xs uppercase tracking-widest shadow-sm"
               >
                 JOIN CLASS
               </button>
               <button
                 onClick={() => setShowCreateClass(true)}
-                className="px-10 py-5 bg-brand-primary text-white rounded-3xl font-black shadow-2xl shadow-brand-primary/20 hover:scale-105 transition-all"
+                className="px-8 py-4 bg-brand-primary text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-brand-primary/10 hover:-translate-y-0.5 transition-all"
               >
                 CREATE FIRST CLASS
               </button>
@@ -136,38 +137,40 @@ export function ClassDashboard({ user, classes }: ClassDashboardProps) {
 
       {/* Create Class Modal */}
       {showCreateClass && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
-            <div className="space-y-2 text-center">
-              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Create New Class</h3>
-              <p className="text-slate-500 font-medium italic">Start a new learning workspace</p>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="space-y-1 text-center">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-2">
+                <Plus className="w-6 h-6 text-brand-primary" /> Create New Class
+              </h3>
+              <p className="text-slate-500 font-medium text-sm">Start a new learning workspace</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <input
-                className="w-full p-5 rounded-3xl bg-slate-50 border-2 border-transparent focus:border-brand-primary outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-primary outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
                 placeholder="Class Name (e.g. Advanced AI)"
                 value={newClassName}
                 onChange={(e) => setNewClassName(e.target.value)}
               />
               <textarea
-                className="w-full p-5 rounded-3xl bg-slate-50 border-2 border-transparent focus:border-brand-primary outline-none transition-all font-medium text-slate-600 h-32 placeholder:text-slate-300"
+                className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-primary outline-none transition-all font-medium text-slate-600 h-28 placeholder:text-slate-300 resize-none"
                 placeholder="Class Description"
                 value={newClassDescription}
                 onChange={(e) => setNewClassDescription(e.target.value)}
               />
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowCreateClass(false)}
-                className="flex-1 py-4 font-black text-slate-400 hover:text-slate-600 transition-colors"
+                className="flex-1 py-3 font-bold text-slate-400 hover:text-slate-600 transition-colors text-sm"
               >
                 CANCEL
               </button>
               <button
                 onClick={handleCreateClass}
-                className="flex-1 bg-brand-primary text-white py-4 rounded-2xl font-black shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all"
+                className="flex-1 bg-brand-primary text-white py-3 rounded-xl font-bold shadow-md shadow-brand-primary/10 hover:-translate-y-0.5 transition-all text-sm"
               >
                 CREATE
               </button>
@@ -178,31 +181,33 @@ export function ClassDashboard({ user, classes }: ClassDashboardProps) {
 
       {/* Join Class Modal */}
       {showJoinClass && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
-            <div className="space-y-2 text-center">
-              <h3 className="text-3xl font-black text-slate-900 tracking-tight">Join a Class</h3>
-              <p className="text-slate-500 font-medium italic">Enter your unique class code</p>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="space-y-1 text-center">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-2">
+                <Link className="w-6 h-6 text-brand-primary" /> Join a Class
+              </h3>
+              <p className="text-slate-500 font-medium text-sm">Enter your unique class code</p>
             </div>
 
             <input
-              className="w-full p-6 bg-slate-50 border-2 border-transparent focus:border-brand-primary rounded-3xl outline-none transition-all font-black text-center text-3xl tracking-widest text-slate-700 placeholder:text-slate-200"
-              placeholder="CODE"
+              className="w-full p-5 bg-slate-50 border border-slate-200 focus:border-brand-primary rounded-xl outline-none transition-all font-black text-center text-4xl tracking-[0.25em] text-slate-700 placeholder:text-slate-200"
+              placeholder="000000"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               maxLength={6}
             />
 
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowJoinClass(false)}
-                className="flex-1 py-4 font-black text-slate-400 hover:text-slate-600 transition-colors"
+                className="flex-1 py-3 font-bold text-slate-400 hover:text-slate-600 transition-colors text-sm"
               >
                 CANCEL
               </button>
               <button
                 onClick={handleJoinClass}
-                className="flex-1 bg-brand-primary text-white py-4 rounded-2xl font-black shadow-xl shadow-brand-primary/20 hover:scale-105 transition-all"
+                className="flex-1 bg-brand-primary text-white py-3 rounded-xl font-bold shadow-md shadow-brand-primary/10 hover:-translate-y-0.5 transition-all text-sm"
               >
                 JOIN
               </button>

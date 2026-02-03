@@ -19,6 +19,7 @@ export default defineSchema({
     code: v.string(),
     teacherId: v.string(),
     description: v.optional(v.string()),
+    bannerStorageId: v.optional(v.id("_storage")),
   }).index("code", ["code"]).index("teacher", ["teacherId"]),
 
   classMembers: defineTable({

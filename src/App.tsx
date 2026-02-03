@@ -2,6 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
+import { School, LogOut, Zap, Rocket, GraduationCap, Presentation } from "lucide-react";
 
 export default function App() {
   return (
@@ -41,22 +42,23 @@ function DashboardContent() {
             <button
               className="pill-tab pill-tab-active flex items-center gap-2"
             >
-              <span>🏫</span>
+              <School className="w-4 h-4" />
               My Classes
             </button>
           </div>
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-full border border-slate-100">
-            <span className="text-amber-500 font-bold">⚡ {user.xp || 0}</span>
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100">
+            <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <span className="text-slate-700 font-bold">{user.xp || 0}</span>
           </div>
 
           <button
             onClick={() => signOut()}
-            className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors"
+            className="w-10 h-10 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors text-slate-500"
           >
-            🚪
+            <LogOut className="w-4 h-4" />
           </button>
 
           <img
@@ -80,8 +82,8 @@ function DashboardContent() {
 function LoadingScreen() {
   return (
     <div className="h-screen bg-bg-main flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-700">
-      <div className="w-24 h-24 bg-brand-primary rounded-[2rem] flex items-center justify-center text-4xl shadow-2xl shadow-brand-primary/20 pulse-soft">
-        🚀
+      <div className="w-20 h-20 bg-brand-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-brand-primary/10">
+        <Rocket className="w-10 h-10" />
       </div>
       <div className="space-y-2 text-center">
         <h2 className="text-xl font-black text-slate-900 tracking-tight">EduOS</h2>
@@ -106,29 +108,33 @@ function OnboardingFlow({ user }: { user: any }) {
 
   return (
     <div className="h-screen bg-bg-main flex items-center justify-center p-6">
-      <div className="max-w-4xl w-full grid md:grid-cols-2 gap-12 animate-in fade-in zoom-in-95 duration-700">
+      <div className="max-w-4xl w-full grid md:grid-cols-2 gap-8 animate-in fade-in zoom-in-95 duration-700">
         <div
-          className="bg-white p-16 rounded-[4rem] shadow-2xl border border-slate-100 flex flex-col justify-center items-center text-center space-y-10 group hover:border-brand-primary transition-all cursor-pointer hover:-translate-y-2 relative overflow-hidden"
+          className="bg-white p-12 rounded-2xl shadow-premium border border-slate-100 flex flex-col justify-center items-center text-center space-y-8 group hover:border-brand-primary transition-all cursor-pointer hover:-translate-y-1 relative overflow-hidden"
           onClick={() => handleRoleSelect("teacher")}
         >
-          <div className="w-28 h-28 bg-brand-primary/5 rounded-[2.5rem] flex items-center justify-center text-6xl group-hover:scale-110 transition-transform shadow-inner">👨‍🏫</div>
-          <div className="space-y-3">
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight">I'm a Teacher</h2>
-            <p className="text-slate-500 font-medium leading-relaxed">Manage classrooms, upload materials, and guide your students.</p>
+          <div className="w-20 h-20 bg-brand-primary/5 rounded-2xl flex items-center justify-center text-brand-primary group-hover:scale-110 transition-transform">
+            <Presentation className="w-10 h-10" />
           </div>
-          <button className="bg-brand-primary text-white px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-brand-primary/20 group-hover:bg-slate-800 transition-all">SELECT TEACHER</button>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">I'm a Teacher</h2>
+            <p className="text-slate-500 font-medium leading-relaxed text-sm">Manage classrooms, upload materials, and guide your students.</p>
+          </div>
+          <button className="bg-brand-primary text-white px-8 py-4 rounded-xl font-bold text-xs uppercase tracking-[0.2em] shadow-lg shadow-brand-primary/10 transition-all">SELECT TEACHER</button>
         </div>
 
         <div
-          className="bg-white p-16 rounded-[4rem] shadow-2xl border border-slate-100 flex flex-col justify-center items-center text-center space-y-10 group hover:border-pastel-blue transition-all cursor-pointer hover:-translate-y-2 relative overflow-hidden"
+          className="bg-white p-12 rounded-2xl shadow-premium border border-slate-100 flex flex-col justify-center items-center text-center space-y-8 group hover:border-pastel-blue transition-all cursor-pointer hover:-translate-y-1 relative overflow-hidden"
           onClick={() => handleRoleSelect("student")}
         >
-          <div className="w-28 h-28 bg-pastel-blue/5 rounded-[2.5rem] flex items-center justify-center text-6xl group-hover:scale-110 transition-transform shadow-inner">🎓</div>
-          <div className="space-y-3">
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight">I'm a Student</h2>
-            <p className="text-slate-500 font-medium leading-relaxed">Join classes, complete lessons, and track your XP journey.</p>
+          <div className="w-20 h-20 bg-pastel-blue/5 rounded-2xl flex items-center justify-center text-pastel-blue group-hover:scale-110 transition-transform">
+            <GraduationCap className="w-10 h-10" />
           </div>
-          <button className="bg-pastel-blue text-white px-10 py-5 rounded-3xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-pastel-blue/20 group-hover:bg-blue-600 transition-all">SELECT STUDENT</button>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">I'm a Student</h2>
+            <p className="text-slate-500 font-medium leading-relaxed text-sm">Join classes, complete lessons, and track your XP journey.</p>
+          </div>
+          <button className="bg-pastel-blue text-white px-8 py-4 rounded-xl font-bold text-xs uppercase tracking-[0.2em] shadow-lg shadow-pastel-blue/10 transition-all">SELECT STUDENT</button>
         </div>
       </div>
     </div>
@@ -161,9 +167,9 @@ function LandingPage() {
         <div className="pt-8">
           <button
             onClick={() => signIn("google")}
-            className="px-12 py-6 bg-brand-primary text-white rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-brand-primary/20 hover:scale-105 hover:bg-slate-800 transition-all transform duration-300 flex items-center gap-4 mx-auto"
+            className="px-12 py-6 bg-brand-primary text-white rounded-2xl font-black text-2xl shadow-xl shadow-brand-primary/10 hover:-translate-y-1 hover:bg-slate-800 transition-all transform duration-300 flex items-center gap-4 mx-auto"
           >
-            <span>🚀</span> Get Started with Google
+            <Rocket className="w-8 h-8" /> Get Started with Google
           </button>
           <p className="mt-8 text-slate-400 font-bold uppercase tracking-widest text-[10px]">Secure Authentication via Google Account</p>
         </div>
