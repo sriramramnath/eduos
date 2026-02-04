@@ -7,10 +7,11 @@ import { Link, Plus, School } from "lucide-react";
 interface ClassDashboardProps {
   user: any;
   classes: any[];
+  selectedClass: any;
+  setSelectedClass: (cls: any) => void;
 }
 
-export function ClassDashboard({ user, classes }: ClassDashboardProps) {
-  const [selectedClass, setSelectedClass] = useState<any>(null);
+export function ClassDashboard({ user, classes, selectedClass, setSelectedClass }: ClassDashboardProps) {
   const [showCreateClass, setShowCreateClass] = useState(false);
   const [showJoinClass, setShowJoinClass] = useState(false);
   const [newClassName, setNewClassName] = useState("");

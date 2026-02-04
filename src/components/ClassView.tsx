@@ -7,7 +7,7 @@ import { FileGrid } from "./FileGrid";
 import { LearningPath } from "./LearningPath";
 import { Scoreboard } from "./Scoreboard";
 import { FileViewer } from "./FileViewer";
-import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X } from "lucide-react";
+import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap } from "lucide-react";
 import { Composer } from "./Composer";
 
 interface ClassViewProps {
@@ -24,23 +24,22 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
     if (!classData) return <div className="p-10 text-slate-400 font-bold animate-pulse text-center">Loading Class...</div>;
 
     return (
-        <div className="animate-in fade-in duration-500">
-            {/* Premium Workspace Header */}
-            <nav className="flex items-center justify-between mb-8 pb-5 border-b border-slate-200">
-                <div className="flex items-center gap-5">
-                    <button onClick={onBack} className="w-9 h-9 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center text-slate-400 shadow-sm group">
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-                    </button>
-                    <div className="flex flex-col text-left">
-                        <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-tight">{classData.name}</h1>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{classData.code}</p>
-                    </div>
-                </div>
+        <div className="animate-in fade-in duration-500 max-w-7xl mx-auto px-4 md:px-12 pt-4">
+            {/* Minimalist Navigation & User Stats Bar */}
+            <nav className="flex items-center justify-between mb-8 pb-4 border-b border-slate-100 gap-4">
+                <button
+                    onClick={onBack}
+                    className="w-10 h-10 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center text-slate-400 shadow-sm group shrink-0"
+                    title="Back to Hub"
+                >
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
 
-                <div className="relative p-1 bg-slate-100 rounded-md flex items-center w-full max-w-2xl hidden md:flex">
+                {/* Centered Navigation Tabs */}
+                <div className="relative p-1 bg-slate-100/50 border border-slate-200 rounded-xl items-center hidden md:flex flex-1 max-w-xl justify-center">
                     {/* Sliding Highlight */}
                     <div
-                        className="absolute h-[calc(100%-8px)] rounded-md bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
+                        className="absolute h-[calc(100%-8px)] rounded-lg bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
                         style={{
                             width: 'calc(20% - 2px)',
                             transform: `translateX(${["stream", "classwork", "people", "path", "leaderboard"].indexOf(activeTab) * 100}%)`,
@@ -51,17 +50,30 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`relative z-10 flex-1 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
+                            className={`relative z-10 flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
                                 }`}
                         >
-                            {tab === "stream" && <MessageSquare className="w-3.5 h-3.5" />}
-                            {tab === "classwork" && <FileText className="w-3.5 h-3.5" />}
-                            {tab === "people" && <Users className="w-3.5 h-3.5" />}
-                            {tab === "path" && <Map className="w-3.5 h-3.5" />}
-                            {tab === "leaderboard" && <Trophy className="w-3.5 h-3.5" />}
-                            <span className="hidden sm:inline">{tab}</span>
+                            {tab === "stream" && <MessageSquare className="w-3 h-3" />}
+                            {tab === "classwork" && <FileText className="w-3 h-3" />}
+                            {tab === "people" && <Users className="w-3 h-3" />}
+                            {tab === "path" && <Map className="w-3 h-3" />}
+                            {tab === "leaderboard" && <Trophy className="w-3 h-3" />}
+                            <span className="hidden lg:inline">{tab}</span>
                         </button>
                     ))}
+                </div>
+
+                {/* Relocated User Info (XP & PFP) */}
+                <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100/50 rounded-lg border border-emerald-200/50 shadow-sm">
+                        <Zap className="w-3 h-3 text-emerald-600 fill-emerald-600" />
+                        <span className="text-emerald-700 font-black text-xs tracking-tight">{user.xp || 0}</span>
+                    </div>
+                    <img
+                        src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
+                        className="w-9 h-9 rounded-xl border-2 border-white shadow-md ring-1 ring-slate-100 hidden sm:block"
+                        alt={user.name}
+                    />
                 </div>
             </nav>
 
@@ -91,7 +103,8 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                     </button>
                 ))}
             </div>
-            <main className="text-left px-6 pb-24 md:pb-0">
+
+            <main className="text-left pb-24 md:pb-12">
                 {activeTab === "stream" && <StreamView classData={classData} user={user} onFileSelect={setSelectedFile} />}
                 {activeTab === "classwork" && <ClassworkView classId={classId} user={user} />}
                 {activeTab === "people" && <PeopleView classId={classId} />}
@@ -141,7 +154,7 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Banner */}
-            <div className={`h-48 md:h-64 rounded-2xl p-8 flex flex-col justify-end text-white relative overflow-hidden shadow-2xl border border-slate-200/20 group ${!bannerUrl ? 'bg-slate-900' : ''}`}>
+            <div className={`h-48 md:h-64 rounded-xl md:rounded-2xl p-6 md:p-10 flex flex-col justify-end text-white relative overflow-hidden shadow-2xl border border-slate-200/20 group ${!bannerUrl ? 'bg-slate-900' : ''}`}>
                 {bannerUrl && (
                     <img src={bannerUrl} alt="Class Banner" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60" />
                 )}
@@ -159,7 +172,12 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
 
                 <div className="relative z-10 flex items-end justify-between">
                     <div>
-                        <h2 className="text-3xl font-bold mb-1 tracking-tight drop-shadow-sm">{classData.name}</h2>
+                        <div className="flex items-center gap-3 mb-1">
+                            <h2 className="text-3xl font-bold tracking-tight drop-shadow-sm">{classData.name}</h2>
+                            <div className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded border border-white/20 text-[10px] font-black tracking-widest">
+                                {classData.code}
+                            </div>
+                        </div>
                         <p className="text-emerald-400 font-bold uppercase tracking-widest text-[9px]">{classData.description || "Academic Year 2026"}</p>
                     </div>
 
@@ -189,13 +207,8 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                 {/* Upcoming sidebar */}
                 <div className="md:col-span-1 hidden md:block">
                     <div className="p-5 premium-card space-y-4">
-                        <h3 className="font-bold text-slate-900 tracking-tight text-sm">Class Info</h3>
-                        <div className="space-y-2">
-                            <div className="p-3 bg-slate-50 rounded-md border border-slate-100">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Class Code</p>
-                                <p className="text-xs font-bold text-emerald-600 leading-snug tracking-wider">{classData.code}</p>
-                            </div>
-                        </div>
+                        <h3 className="font-bold text-slate-900 tracking-tight text-sm">Class News</h3>
+                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed">Stay updated with the latest announcements and resources shared by your teachers.</p>
                     </div>
                 </div>
 

@@ -36,7 +36,9 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
     file.mimeType.includes("presentation") ||
     file.name.toLowerCase().endsWith(".pptx") ||
     file.name.toLowerCase().endsWith(".ppt") ||
-    file.mimeType.includes("image")
+    file.mimeType.includes("image") ||
+    file.mimeType.includes("pdf") ||
+    file.name.toLowerCase().endsWith(".pdf")
   );
 
   useEffect(() => {
@@ -92,11 +94,21 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
     setTimeout(() => {
       setIsImporting(false);
       setImportTarget(null);
+
+      if (!fileUrl) {
+        console.error("Cloud Import failed: File URL not ready.");
+        return;
+      }
+
       if (target === "google") {
-        const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl || "")}`;
+        const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
         window.open(googleDocsUrl, "_blank");
       } else if (target === "canva") {
-        const canvaUrl = `https://www.canva.com/design/create?import=${encodeURIComponent(fileUrl || "")}&title=${encodeURIComponent(file.name)}`;
+        // Append a dummy extension if it's missing, as Canva uses the URL suffix to detect file type
+        const extension = file.name.split('.').pop()?.toLowerCase() || 'png';
+        const suffixedUrl = `${fileUrl}${fileUrl.includes('?') ? '&' : '?'}ext=.${extension}`;
+
+        const canvaUrl = `https://www.canva.com/design/create?type=IMPORT&import=${encodeURIComponent(suffixedUrl)}&title=${encodeURIComponent(file.name)}`;
         window.open(canvaUrl, "_blank");
       }
     }, 1500);
