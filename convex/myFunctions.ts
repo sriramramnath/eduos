@@ -1,6 +1,6 @@
 import { mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { Id, Doc } from "./_generated/dataModel";
+import { Id } from "./_generated/dataModel";
 
 // Helper to get consistent user data from identity
 async function getCurrentUserData(ctx: QueryCtx | MutationCtx) {
@@ -489,6 +489,63 @@ export const getClassMembers = query({
   },
 });
 
+export const getClassTeacher = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const classDoc = await ctx.db.get(classId);
+    if (!classDoc) return null;
+
+    return await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", classDoc.teacherId))
+      .first();
+  },
+});
+
+export const createAnnouncement = mutation({
+  args: {
+    classId: v.id("classes"),
+    content: v.string(),
+  },
+  handler: async (ctx, { classId, content }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    // Both teachers and students can post announcements in this vision (or just teachers? user requested "make like text i can type")
+
+    return await ctx.db.insert("announcements", {
+      classId,
+      content,
+      authorEmail: data.user.email,
+    });
+  },
+});
+
+export const createQuiz = mutation({
+  args: {
+    classId: v.id("classes"),
+    title: v.string(),
+    questions: v.array(v.object({
+      question: v.string(),
+      options: v.array(v.string()),
+      correctOption: v.number(),
+    })),
+    xpValue: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can create quizzes");
+
+    return await ctx.db.insert("quizzes", {
+      classId: args.classId,
+      title: args.title,
+      questions: args.questions,
+      authorEmail: data.user.email,
+      xpValue: args.xpValue,
+    });
+  },
+});
+
 export const getStreamEntries = query({
   args: { classId: v.id("classes") },
   handler: async (ctx, { classId }) => {
@@ -497,8 +554,24 @@ export const getStreamEntries = query({
       .withIndex("class", (q) => q.eq("classId", classId))
       .collect();
 
-    // Sort by creation time (most recent first)
-    return files.sort((a, b) => b._creationTime - a._creationTime);
+    const announcements = await ctx.db
+      .query("announcements")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    const quizzes = await ctx.db
+      .query("quizzes")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    // Map entries to a common format
+    const fileEntries = files.map(f => ({ ...f, entryType: "file" }));
+    const announcementEntries = announcements.map(a => ({ ...a, entryType: "announcement" }));
+    const quizEntries = quizzes.map(q => ({ ...q, entryType: "quiz" }));
+
+    // Merge and sort by creation time (most recent first)
+    const combined = [...fileEntries, ...announcementEntries, ...quizEntries];
+    return combined.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
 
@@ -527,5 +600,36 @@ export const updateClassBanner = mutation({
 
     await ctx.db.patch(classId, { bannerStorageId });
     return { success: true };
+  },
+});
+export const completeQuiz = mutation({
+  args: {
+    quizId: v.id("quizzes"),
+    score: v.number(),
+    totalQuestions: v.number(),
+  },
+  handler: async (ctx, { quizId, score, totalQuestions }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+
+    const quiz = await ctx.db.get(quizId);
+    if (!quiz) throw new Error("Quiz not found");
+
+    // Prevent double submission? For now let's just record it
+    await ctx.db.insert("quizSubmissions", {
+      quizId,
+      studentId: data.user.email,
+      score,
+      totalQuestions,
+      completedAt: Date.now(),
+    });
+
+    // Award XP: 5 XP per correct answer
+    const xpAward = score * 5;
+    await ctx.db.patch(data.user._id, {
+      xp: (data.user.xp || 0) + xpAward,
+    });
+
+    return { success: true, xpAwarded: xpAward };
   },
 });

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { Plus, Zap, Check, Sparkles } from "lucide-react";
+import { Plus, Zap, Check } from "lucide-react";
 
 interface LearningPathProps {
     classId: Id<"classes">;
@@ -50,45 +50,43 @@ export function LearningPath({ classId, user }: LearningPathProps) {
     };
 
     return (
-        <div className="max-w-2xl mx-auto py-12 space-y-20 relative animate-in fade-in duration-700">
+        <div className="max-w-2xl mx-auto py-10 space-y-16 relative animate-in fade-in duration-500 text-left">
             {user.role === "teacher" && (
-                <div className="flex justify-end mb-12">
+                <div className="flex justify-end mb-8">
                     <button
                         onClick={() => setIsAddingUnit(true)}
-                        className="bg-brand-primary text-white px-6 py-3 rounded-xl font-bold shadow-md shadow-brand-primary/10 hover:-translate-y-0.5 transition-all text-xs tracking-widest uppercase flex items-center gap-2"
+                        className="bg-emerald-600 text-white px-5 py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[10px] tracking-widest uppercase flex items-center gap-2"
                     >
-                        <Plus className="w-4 h-4" /> New Learning Unit
+                        <Plus className="w-4 h-4" /> New Unit
                     </button>
                 </div>
             )}
             {isAddingUnit && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight text-center flex items-center justify-center gap-2">
-                            <Plus className="w-6 h-6 text-brand-primary" /> New Unit
-                        </h3>
+                    <div className="bg-white rounded-md p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight text-center">New Unit</h3>
                         <input
-                            className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-primary outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-                            placeholder="Unit Title (e.g. Intro to Algebra)"
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white outline-none transition-all font-bold text-slate-700 text-sm placeholder:text-slate-300"
+                            placeholder="Unit Title"
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
                         />
                         <textarea
-                            className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-primary outline-none transition-all font-medium text-slate-600 h-28 placeholder:text-slate-300 resize-none"
-                            placeholder="Brief Overview"
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white outline-none transition-all font-medium text-slate-600 text-sm h-24 placeholder:text-slate-300 resize-none"
+                            placeholder="Overview"
                             value={newDesc}
                             onChange={(e) => setNewDesc(e.target.value)}
                         />
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <button
                                 onClick={() => setIsAddingUnit(false)}
-                                className="flex-1 py-3 font-bold text-slate-400 hover:text-slate-600 transition-colors text-sm"
+                                className="flex-1 py-2.5 font-bold text-slate-400 hover:text-slate-600 transition-colors text-[11px] uppercase tracking-widest"
                             >
                                 CANCEL
                             </button>
                             <button
                                 onClick={handleAddUnit}
-                                className="flex-1 bg-brand-primary text-white py-3 rounded-xl font-bold shadow-md shadow-brand-primary/10 hover:-translate-y-0.5 transition-all text-sm"
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
                             >
                                 CREATE
                             </button>
@@ -99,32 +97,30 @@ export function LearningPath({ classId, user }: LearningPathProps) {
 
             {isAddingLesson && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight text-center flex items-center justify-center gap-2">
-                            <Sparkles className="w-6 h-6 text-brand-primary" /> New Lesson
-                        </h3>
+                    <div className="bg-white rounded-md p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight text-center">New Lesson</h3>
                         <input
-                            className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-primary outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white outline-none transition-all font-bold text-slate-700 text-sm placeholder:text-slate-300"
                             placeholder="Lesson Title"
                             value={newTitle}
                             onChange={(e) => setNewTitle(e.target.value)}
                         />
                         <textarea
-                            className="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-brand-primary outline-none transition-all font-medium text-slate-600 h-28 placeholder:text-slate-300 resize-none"
-                            placeholder="Content or Prompt"
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white outline-none transition-all font-medium text-slate-600 text-sm h-24 placeholder:text-slate-300 resize-none"
+                            placeholder="Content"
                             value={newContent}
                             onChange={(e) => setNewContent(e.target.value)}
                         />
-                        <div className="flex gap-3">
+                        <div className="flex gap-2">
                             <button
                                 onClick={() => setIsAddingLesson(null)}
-                                className="flex-1 py-3 font-bold text-slate-400 hover:text-slate-600 transition-colors text-sm"
+                                className="flex-1 py-2.5 font-bold text-slate-400 hover:text-slate-600 transition-colors text-[11px] uppercase tracking-widest"
                             >
                                 CANCEL
                             </button>
                             <button
                                 onClick={handleAddLesson}
-                                className="flex-1 bg-brand-primary text-white py-3 rounded-xl font-bold shadow-md shadow-brand-primary/10 hover:-translate-y-0.5 transition-all text-sm"
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
                             >
                                 ADD
                             </button>
@@ -139,23 +135,20 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                 </div>
             ) : (
                 learningPath.map((unit: any, uIdx: number) => {
-                    const colors = ['bg-pastel-blue', 'bg-pastel-purple', 'bg-pastel-green'];
-                    const color = colors[uIdx % colors.length];
-
                     return (
-                        <div key={unit._id} className="space-y-10">
-                            <div className={`p-8 rounded-2xl text-white shadow-xl relative group overflow-hidden ${color}`}>
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                                <p className="text-[10px] font-black uppercase tracking-[0.25em] opacity-70 mb-1">Learning Unit {uIdx + 1}</p>
-                                <h2 className="text-2xl font-black mb-2 tracking-tight">{unit.title}</h2>
-                                <p className="text-white/80 font-medium leading-relaxed max-w-md text-sm">{unit.description}</p>
+                        <div key={unit._id} className="space-y-8">
+                            <div className="p-6 rounded-md bg-white border border-slate-200 shadow-sm relative group overflow-hidden">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 mb-1">Unit {uIdx + 1}</p>
+                                <h2 className="text-xl font-bold mb-1 text-slate-900 tracking-tight">{unit.title}</h2>
+                                <p className="text-slate-500 font-medium leading-relaxed max-w-md text-xs">{unit.description}</p>
 
                                 {user.role === "teacher" && (
                                     <button
                                         onClick={() => setIsAddingLesson(unit._id)}
-                                        className="absolute bottom-8 right-8 bg-white text-slate-900 font-bold py-2.5 px-5 rounded-xl text-[10px] uppercase tracking-widest shadow-lg opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 flex items-center gap-2"
+                                        className="absolute bottom-6 right-6 bg-slate-900 text-white font-bold py-1.5 px-3 rounded-md text-[9px] uppercase tracking-widest shadow-sm opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1.5 border border-slate-800"
                                     >
-                                        <Plus className="w-3.5 h-3.5" /> ADD LESSON
+                                        <Plus className="w-3 h-3" /> Add Lesson
                                     </button>
                                 )}
                             </div>
@@ -169,25 +162,25 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                                     return (
                                         <div
                                             key={lesson._id}
-                                            className={`relative z-10 flex items-center w-full ${isOdd ? "justify-center translate-x-16" : "justify-center -translate-x-16"
+                                            className={`relative z-10 flex items-center w-full ${isOdd ? "justify-center translate-x-12" : "justify-center -translate-x-12"
                                                 }`}
                                         >
                                             <button
                                                 onClick={() => handleComplete(lesson._id)}
                                                 disabled={lesson.isCompleted}
-                                                className={`group relative flex items-center justify-center w-16 h-16 rounded-xl border-2 transition-all duration-200 shadow-lg ${lesson.isCompleted
-                                                    ? `bg-slate-900 border-slate-900 text-white cursor-default`
-                                                    : `bg-white border-slate-100 text-slate-400 hover:border-slate-300 hover:text-slate-600`
+                                                className={`group relative flex items-center justify-center w-14 h-14 rounded-md border transition-all duration-200 shadow-sm ${lesson.isCompleted
+                                                    ? `bg-emerald-600 border-emerald-600 text-white cursor-default`
+                                                    : `bg-white border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-600`
                                                     }`}
                                             >
                                                 {lesson.isCompleted ? (
-                                                    <Check className="w-6 h-6" />
+                                                    <Check className="w-5 h-5" />
                                                 ) : (
-                                                    <Zap className="w-6 h-6" />
+                                                    <Zap className="w-5 h-5" />
                                                 )}
 
                                                 {/* Tooltip */}
-                                                <div className="absolute left-full ml-4 opacity-0 group-hover:opacity-100 transition-all bg-slate-900 text-white text-[10px] px-3 py-1.5 rounded-lg whitespace-nowrap pointer-events-none font-bold uppercase tracking-widest shadow-xl transform translate-x-2 group-hover:translate-x-0">
+                                                <div className="absolute left-full ml-3 opacity-0 group-hover:opacity-100 transition-all bg-slate-900 text-white text-[9px] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none font-bold uppercase tracking-widest shadow-md">
                                                     {lesson.title} (+{lesson.xpAward} XP)
                                                 </div>
                                             </button>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Doc } from "../../convex/_generated/dataModel";
 import { FileViewer } from "./FileViewer";
 import { AssignmentModal } from "./AssignmentModal";
-import { FileText, FileSpreadsheet, Presentation, FileImage, Film, Folder, Eye, Pin, File } from "lucide-react";
+import { FileText, FileSpreadsheet, Presentation, FileImage, Film, Folder, Pin, File } from "lucide-react";
 
 interface FileGridProps {
   files: Doc<"files">[];
@@ -26,13 +26,13 @@ export function FileGrid({ files, userRole }: FileGridProps) {
 
   if (files.length === 0) {
     return (
-      <div className="text-center py-20 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
-        <div className="flex justify-center mb-4 text-slate-300">
-          <Folder className="w-12 h-12" />
+      <div className="text-center py-16 rounded-md bg-slate-50 border border-dashed border-slate-200">
+        <div className="flex justify-center mb-4 text-emerald-200">
+          <Folder className="w-10 h-10" />
         </div>
-        <p className="text-slate-400 font-bold italic">No files shared yet in this workspace.</p>
+        <p className="text-slate-400 font-bold italic text-sm">No files shared yet in this workspace.</p>
         {userRole !== "student" && (
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 mt-3">Upload resources to get started</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-2">Upload resources to get started</p>
         )}
       </div>
     );
@@ -40,40 +40,47 @@ export function FileGrid({ files, userRole }: FileGridProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {files.map((file) => (
           <div
             key={file._id}
-            className="premium-card p-6 flex flex-col group"
+            onClick={() => setSelectedFile(file)}
+            className="premium-card p-4 flex flex-col group cursor-pointer hover:border-emerald-500/40 relative"
           >
-            <div className="flex items-start gap-4 mb-6">
-              <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-brand-primary group-hover:text-white transition-all">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 bg-emerald-50 rounded-md flex items-center justify-center text-emerald-600 border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
                 {getFileIcon(file.mimeType)}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base font-black text-slate-900 truncate tracking-tight">{file.name}</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                <h3 className="text-sm font-bold text-slate-900 truncate tracking-tight group-hover:text-emerald-600 transition-colors">{file.name}</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
-                {file.editable && (
-                  <span className="inline-block mt-2 px-2 py-0.5 bg-green-50 text-green-600 text-[9px] font-black uppercase tracking-widest rounded-md border border-green-100">
-                    Editable
-                  </span>
-                )}
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedFile(file)}
-                className="flex-[2] bg-brand-primary text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md shadow-brand-primary/10 hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
-              >
-                <Eye className="w-3.5 h-3.5" /> View
-              </button>
+            <div className="flex items-center justify-between mt-auto">
+              <div className="flex gap-1.5">
+                {file.editable && (
+                  <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest rounded border border-emerald-100">
+                    Edit
+                  </span>
+                )}
+                {file.isAssignment && (
+                  <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[8px] font-black uppercase tracking-widest rounded border border-rose-100">
+                    Assign
+                  </span>
+                )}
+              </div>
+
               {userRole !== "student" && (
                 <button
-                  onClick={() => setAssignmentFile(file)}
-                  className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md shadow-slate-900/10 hover:translate-y-[-1px] transition-all flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAssignmentFile(file);
+                  }}
+                  className="w-8 h-8 rounded-md hover:bg-emerald-50 flex items-center justify-center text-slate-300 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100"
+                  title="Add to Path"
                 >
                   <Pin className="w-3.5 h-3.5" />
                 </button>
@@ -87,7 +94,6 @@ export function FileGrid({ files, userRole }: FileGridProps) {
         <FileViewer
           file={selectedFile}
           onClose={() => setSelectedFile(null)}
-          userRole={userRole}
         />
       )}
 

@@ -59,15 +59,15 @@ export function UploadButton({ classId, isAssignment = false }: UploadButtonProp
       />
       <label
         htmlFor={`file-upload-${classId}`}
-        className={`flex items-center gap-3 bg-brand-primary text-white px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md shadow-brand-primary/10 transition-all hover:translate-y-[-1px] active:translate-y-[0px] cursor-pointer ${uploading ? "opacity-70 cursor-not-allowed" : ""
+        className={`flex items-center gap-2.5 bg-emerald-600 text-white px-5 py-2.5 rounded-md font-bold text-[10px] uppercase tracking-widest shadow-sm transition-all hover:bg-emerald-700 cursor-pointer ${uploading ? "opacity-70 cursor-not-allowed" : ""
           }`}
       >
         {uploading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
         ) : (
-          <Upload className="w-4 h-4" />
+          <Upload className="w-3.5 h-3.5" />
         )}
-        {uploading ? "UPLOADING..." : isAssignment ? "ASSIGN RESOURCE" : "SHARE RESOURCE"}
+        {uploading ? "Wait..." : isAssignment ? "Assign Resource" : "Share Resource"}
       </label>
     </div>
   );

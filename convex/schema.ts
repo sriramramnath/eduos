@@ -69,4 +69,30 @@ export default defineSchema({
     lessonId: v.id("lessons"),
     completedAt: v.number(),
   }).index("user", ["userId"]).index("lesson", ["lessonId"]),
+
+  announcements: defineTable({
+    classId: v.id("classes"),
+    content: v.string(),
+    authorEmail: v.string(),
+  }).index("class", ["classId"]),
+
+  quizzes: defineTable({
+    classId: v.id("classes"),
+    title: v.string(),
+    questions: v.array(v.object({
+      question: v.string(),
+      options: v.array(v.string()),
+      correctOption: v.number(),
+    })),
+    authorEmail: v.string(),
+    xpValue: v.number(),
+  }).index("class", ["classId"]),
+
+  quizSubmissions: defineTable({
+    quizId: v.id("quizzes"),
+    studentId: v.string(), // email
+    score: v.number(),
+    totalQuestions: v.number(),
+    completedAt: v.number(),
+  }).index("quiz", ["quizId"]).index("student", ["studentId"]),
 });
