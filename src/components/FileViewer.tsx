@@ -10,15 +10,13 @@ interface FileViewerProps {
   onClose: () => void;
 }
 
-type ViewerMode = "apryse" | "google" | "canva";
-
 export function FileViewer({ file, onClose }: FileViewerProps) {
   const viewer = useRef<HTMLDivElement>(null);
   const fileUrl = useQuery(api.myFunctions.getFileUrl, { storageId: file.storageId });
   const [isViewerLoading, setIsViewerLoading] = useState(true);
-  const [viewerMode, setViewerMode] = useState<ViewerMode>("apryse");
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+  const [importTarget, setImportTarget] = useState<"google" | "canva" | null>(null);
 
   const isOfficeDoc = (
     file.mimeType.includes("pdf") ||
@@ -42,7 +40,7 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
   );
 
   useEffect(() => {
-    if (isOfficeDoc && viewer.current && fileUrl && viewerMode === "apryse") {
+    if (isOfficeDoc && viewer.current && fileUrl) {
       setIsViewerLoading(true);
       WebViewer(
         {
@@ -74,10 +72,11 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
         setIsViewerLoading(false);
       });
     }
-  }, [fileUrl, isOfficeDoc, viewerMode]);
+  }, [fileUrl, isOfficeDoc]);
 
   const handleCloudImport = (target: "google" | "canva") => {
     setIsImporting(true);
+    setImportTarget(target);
     setImportProgress(0);
 
     const interval = setInterval(() => {
@@ -86,26 +85,25 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
           clearInterval(interval);
           return 100;
         }
-        return prev + (Math.random() * 15);
+        return prev + (Math.random() * 20);
       });
-    }, 200);
+    }, 150);
 
     setTimeout(() => {
       setIsImporting(false);
+      setImportTarget(null);
       if (target === "google") {
-        setViewerMode("google");
+        const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl || "")}`;
+        window.open(googleDocsUrl, "_blank");
       } else if (target === "canva") {
-        // Canva direct import URL
-        const canvaUrl = `https://www.canva.com/design?create&type=IMPORT&url=${encodeURIComponent(fileUrl || "")}`;
+        const canvaUrl = `https://www.canva.com/design/create?import=${encodeURIComponent(fileUrl || "")}&title=${encodeURIComponent(file.name)}`;
         window.open(canvaUrl, "_blank");
       }
-    }, 2000);
+    }, 1500);
   };
 
-  const googleViewerUrl = fileUrl ? `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true` : null;
-
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-0 md:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-0 md:p-4 animate-in fade-in duration-200 text-left">
       <div className={`bg-white w-full rounded-none md:rounded-md shadow-2xl overflow-hidden flex flex-col h-screen md:h-[95vh] animate-in zoom-in-95 duration-200 border border-slate-200 relative ${isOfficeDoc ? 'max-w-7xl' : 'max-w-6xl'}`}>
 
         {/* Unified Top Navigation Bar */}
@@ -123,31 +121,32 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
             </div>
           </div>
 
-          {/* Center: Switcher (Desktop only, for supported docs) */}
-          {isOfficeDoc && (
-            <div className="hidden md:flex items-center bg-slate-100/50 border border-slate-200 rounded-md p-1 shadow-sm">
-              <button
-                onClick={() => setViewerMode("apryse")}
-                className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewerMode === "apryse" ? "bg-white text-emerald-600 shadow-sm border border-slate-200" : "text-slate-500 hover:bg-white/50"}`}
-              >
-                <Layout className="w-2.5 h-2.5" /> High-Fidelity
-              </button>
+          {/* Center: Cloud Switcher (Desktop only) */}
+          <div className="hidden md:flex items-center bg-slate-100/50 border border-slate-200 rounded-md p-1 shadow-sm">
+            <button
+              className="px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest bg-white text-emerald-600 shadow-sm border border-slate-200 flex items-center gap-2"
+            >
+              <Layout className="w-2.5 h-2.5" /> High-Fidelity
+            </button>
+
+            {isOfficeDoc && (
               <button
                 onClick={() => handleCloudImport("google")}
-                className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${viewerMode === "google" ? "bg-white text-emerald-600 shadow-sm border border-slate-200" : "text-slate-500 hover:bg-white/50"}`}
+                className="px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest text-slate-500 hover:bg-white/50 transition-all flex items-center gap-2"
               >
-                <Globe className="w-2.5 h-2.5" /> Google Cloud
+                <Globe className="w-2.5 h-2.5" /> Open in Google
               </button>
-              {isCanvaSupported && (
-                <button
-                  onClick={() => handleCloudImport("canva")}
-                  className="px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest text-slate-500 hover:bg-white/50 transition-all flex items-center gap-2"
-                >
-                  <Edit3 className="w-2.5 h-2.5" /> Edit in Canva
-                </button>
-              )}
-            </div>
-          )}
+            )}
+
+            {isCanvaSupported && (
+              <button
+                onClick={() => handleCloudImport("canva")}
+                className="px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest text-slate-500 hover:bg-white/50 transition-all flex items-center gap-2"
+              >
+                <Edit3 className="w-2.5 h-2.5" /> Edit in Canva
+              </button>
+            )}
+          </div>
 
           {/* Right: Actions and Close */}
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -172,11 +171,13 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
           <div className="absolute inset-0 bg-white/95 z-[120] flex items-center justify-center animate-in fade-in duration-300">
             <div className="max-w-xs w-full px-8 text-center space-y-6">
               <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center text-white mx-auto shadow-lg animate-bounce">
-                <Globe className="w-8 h-8" />
+                {importTarget === "google" ? <Globe className="w-8 h-8" /> : <Edit3 className="w-8 h-8" />}
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Syncing to Cloud</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Uploading {file.name}...</p>
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                  {importTarget === "google" ? "Syncing to Google" : "Importing to Canva"}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Establishing direct link...</p>
               </div>
               <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
                 <div
@@ -184,7 +185,7 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
                   style={{ width: `${importProgress}%` }}
                 ></div>
               </div>
-              <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest animate-pulse">Establishing Secure Bridge</p>
+              <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest animate-pulse">Launching Cloud Editor</p>
             </div>
           </div>
         )}
@@ -222,39 +223,18 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
             </div>
           ) : (
             <div className="flex-1 w-full h-full relative">
-              {viewerMode === "apryse" ? (
-                <>
-                  {(!fileUrl || isViewerLoading) && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-[105]">
-                      <div className="text-center space-y-4">
-                        <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optimizing Document...</p>
-                          <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em]">Unified Engine Loading</p>
-                        </div>
-                      </div>
+              {(!fileUrl || isViewerLoading) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-[105]">
+                  <div className="text-center space-y-4">
+                    <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optimizing Document...</p>
+                      <p className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em]">Unified Engine Loading</p>
                     </div>
-                  )}
-                  <div className="w-full h-full" ref={viewer}></div>
-                </>
-              ) : (
-                <div className="w-full h-full bg-slate-100 flex flex-col">
-                  {googleViewerUrl ? (
-                    <iframe
-                      src={googleViewerUrl}
-                      className="w-full flex-1 border-none"
-                      title="Google Cloud Viewer"
-                    />
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center text-slate-400 font-bold animate-pulse">
-                      Connecting to Google Cloud...
-                    </div>
-                  )}
-                  <div className="bg-white border-t border-slate-200 p-4 flex items-center justify-center gap-3">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">External Viewer Mode • Interactive Tools Disabled</p>
                   </div>
                 </div>
               )}
+              <div className="w-full h-full" ref={viewer}></div>
             </div>
           )}
         </div>
@@ -263,10 +243,10 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
         <footer className="px-6 py-3 border-t border-slate-50 bg-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
-            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">System Integrated Viewer • Secure Data Transmission</span>
+            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">System Integrated Viewer • Secure Cloud Bridge Enabled</span>
           </div>
           <div className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">
-            {viewerMode === "apryse" ? "Powered by Apryse" : viewerMode === "google" ? "Powered by Google Cloud" : "Powered by Canva"}
+            Powered by Apryse High-Fidelity Engine
           </div>
         </footer>
       </div>

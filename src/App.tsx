@@ -2,7 +2,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
-import { LogOut, Zap, Rocket, GraduationCap, Presentation, Menu } from "lucide-react";
+import { LogOut, Zap, Rocket, GraduationCap, Presentation } from "lucide-react";
 
 export default function App() {
   return (
@@ -17,20 +17,11 @@ export default function App() {
   );
 }
 
-import { useState } from "react";
-import { Sidebar } from "./components/Sidebar";
-import { Scoreboard } from "./components/Scoreboard";
-import { FileGrid } from "./components/FileGrid";
 
 function DashboardContent() {
   const { signOut } = useAuthActions();
   const user = useQuery(api.myFunctions.getCurrentUser);
   const classes = useQuery(api.myFunctions.getMyClasses) || [];
-  const files = useQuery(api.myFunctions.getClassFiles, classes[0]?._id ? { classId: classes[0]._id } : "skip") || [];
-
-  const [activeTab, setActiveTab] = useState("classes");
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   if (user === undefined) return <LoadingScreen />;
   if (!user) return <LandingPage />;
@@ -39,104 +30,53 @@ function DashboardContent() {
   if (!user.role) return <OnboardingFlow user={user} />;
 
   return (
-    <div className="flex min-h-screen bg-white overflow-hidden relative">
-      {/* Mobile Sidebar Overlay */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[70] md:hidden animate-in fade-in duration-300"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Sidebar - Collapsable on desktop, Drawer on mobile */}
-      <div className={`
-        fixed inset-y-0 left-0 z-[80] transition-transform duration-300 ease-in-out md:relative md:translate-x-0
-        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-      `}>
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={(tab) => {
-            setActiveTab(tab);
-            setIsMobileMenuOpen(false);
-          }}
-          user={user}
-          isCollapsed={isSidebarCollapsed}
-          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-      </div>
-
+    <div className="flex flex-col min-h-screen bg-white overflow-hidden relative">
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Top Header - Consolidated */}
-        <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-slate-200 bg-white/70 backdrop-blur-lg sticky top-0 z-40 shrink-0">
+        {/* Top Header - Minimalist Hub Branding */}
+        <header className="h-16 flex items-center justify-between px-6 md:px-12 border-b border-slate-100 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shrink-0">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden w-9 h-9 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <h2 className="text-lg font-bold text-slate-900 capitalize tracking-tight hidden sm:block">{activeTab}</h2>
-            <div className="md:hidden flex items-center gap-2">
-              <div className="w-2 h-6 bg-emerald-500 rounded-sm"></div>
-              <span className="font-bold text-slate-900">EduOS</span>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-6 bg-emerald-500 rounded-sm shadow-[0_0_12px_rgba(16,185,129,0.3)]"></div>
+              <span className="font-black text-slate-900 tracking-tighter text-xl">EduOS</span>
             </div>
+            <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+            <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest hidden sm:block">Class Hub</h2>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 rounded-md border border-slate-200">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100 shadow-sm">
               <Zap className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500" />
-              <span className="text-slate-700 font-bold text-sm tracking-tight">{user.xp || 0}</span>
+              <span className="text-emerald-700 font-black text-xs tracking-tight">{user.xp || 0}</span>
             </div>
 
             <button
               onClick={() => signOut()}
-              className="w-9 h-9 rounded-md border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors text-slate-400 hidden sm:flex"
+              className="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all text-slate-400 hover:text-red-500 hover:border-red-100 group shadow-sm bg-white"
               title="Sign Out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 transition-transform group-hover:scale-110" />
             </button>
 
-            <img
-              src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
-              className="w-8 h-8 md:w-9 md:h-9 rounded-md border border-slate-200 shadow-sm"
-              alt={user.name}
-            />
+            <div className="flex items-center gap-3 pl-2 border-l border-slate-100">
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] font-black text-slate-900 leading-none">{user.name}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Active Now</p>
+              </div>
+              <img
+                src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
+                className="w-9 h-9 rounded-xl border-2 border-white shadow-xl ring-1 ring-slate-100"
+                alt={user.name}
+              />
+            </div>
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-auto p-4 md:p-10 scrollbar-hide">
+        <main className="flex-1 overflow-auto p-6 md:p-12 scrollbar-hide">
           <div className="max-w-7xl mx-auto min-h-full pb-20 md:pb-0">
-            {activeTab === "classes" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <ClassDashboard user={user} classes={classes} />
-              </div>
-            )}
-
-            {activeTab === "home" && (
-              <div className="text-center py-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <h2 className="text-4xl font-bold text-slate-900 tracking-tighter mb-4">Welcome back, {user.name.split(' ')[0]}!</h2>
-                <p className="text-slate-500 font-medium max-w-lg mx-auto">Your daily summary and suggested tasks will appear here. Focus on your growth today.</p>
-              </div>
-            )}
-
-            {activeTab === "files" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">My Digital Cloud</h2>
-                    <p className="text-sm text-slate-500 font-medium">All your resources in one high-performance vault.</p>
-                  </div>
-                </div>
-                <FileGrid files={files} userRole={user.role} />
-              </div>
-            )}
-
-            {activeTab === "scoreboard" && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <Scoreboard classId={classes[0]?._id} />
-              </div>
-            )}
+            <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+              <ClassDashboard user={user} classes={classes} />
+            </div>
           </div>
         </main>
       </div>
