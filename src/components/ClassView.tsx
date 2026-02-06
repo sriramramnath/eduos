@@ -412,18 +412,32 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
-    // Block if already submitted (single-attempt)
-    if (quiz.singleAttempt && hasSubmitted) {
+    // Loading state for submission check
+    if (quiz.singleAttempt && hasSubmitted === undefined) {
+        return (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 animate-in zoom-in-95">
+                    <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+                    <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">Verifying access...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Block if already submitted (single-attempt), but allow if just finished (so they see the results)
+    if (quiz.singleAttempt && hasSubmitted && !isFinished) {
         return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-10 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto text-2xl">🔒</div>
+                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto text-4xl shadow-inner">🎉</div>
                     <div>
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">Already Completed</h3>
-                        <p className="text-slate-500 font-medium text-sm">You have already submitted this quiz. Single-attempt quizzes can only be taken once.</p>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-2 tracking-tight">You've done it already!</h3>
+                        <p className="text-slate-500 font-medium text-base leading-relaxed">
+                            You've already completed this quiz. Why not do something else or just have fun? You're doing great!
+                        </p>
                     </div>
-                    <button onClick={onClose} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-700 transition-all">
-                        Close
+                    <button onClick={onClose} className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl translate-y-0 hover:-translate-y-0.5">
+                        Close & Explore
                     </button>
                 </div>
             </div>

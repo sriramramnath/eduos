@@ -32,10 +32,10 @@ function DashboardContent() {
   if (!user.role) return <OnboardingFlow user={user} />;
 
   return (
-    <div className="flex flex-col min-h-screen bg-white overflow-hidden relative">
+    <div className="flex flex-col min-h-screen bg-transparent overflow-hidden relative">
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top Header - Minimalist Hub Branding */}
-        <header className="h-14 flex items-center justify-between px-6 md:px-12 border-b border-slate-100 bg-white/80 backdrop-blur-xl sticky top-0 z-40 shrink-0">
+        <header className="h-14 flex items-center justify-between px-6 md:px-12 bg-white/70 backdrop-blur-2xl sticky top-0 z-40 shrink-0 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-5 bg-emerald-500 rounded-sm shadow-[0_0_12px_rgba(16,185,129,0.3)]"></div>

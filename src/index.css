@@ -25,7 +25,8 @@
 }
 
 body {
-  @apply font-plus bg-surface-soft text-slate-900 antialiased;
+  @apply font-plus text-slate-900 antialiased;
+  background: radial-gradient(circle at 50% 0%, #ffffff 0%, #f1f5f9 100%);
   margin: 0;
   letter-spacing: -0.01em;
 }
@@ -45,7 +46,7 @@ h6 {
   }
 
   .premium-card {
-    @apply bg-white rounded-md border border-slate-200 shadow-sm hover:border-emerald-500/30 hover:shadow-md transition-all duration-200;
+    @apply bg-white rounded-md border border-slate-200 shadow-[0_2px_8px_-2px_rgba(0, 0, 0, 0.05)] hover:border-emerald-500/30 hover:shadow-[0_8px_24px_-8px_rgba(16, 185, 129, 0.15)] transition-all duration-300;
   }
 
   .pill-tab {
