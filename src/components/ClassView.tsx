@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -338,10 +338,47 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
     const [score, setScore] = useState(0);
     const [isFinished, setIsFinished] = useState(false);
 
-    // XP awarded per correct answer
-    const XP_PER_QUESTION = 5;
+    // Timer state
+    const [timerActive, setTimerActive] = useState(false);
+    const [timeRemaining, setTimeRemaining] = useState(quiz.timeLimitMinutes ? quiz.timeLimitMinutes * 60 : 0);
+    const [timerStarted, setTimerStarted] = useState(false);
+
+    // XP calculation
+    const xpPerCorrect = quiz.xpPerQuestion || 5;
 
     const completeQuizMutation = useMutation(api.myFunctions.completeQuiz);
+    const hasSubmitted = useQuery(api.myFunctions.hasSubmittedQuiz, { quizId: quiz._id });
+
+    // Timer effect
+    useEffect(() => {
+        if (!timerActive || timeRemaining <= 0 || !quiz.timeLimitMinutes) return;
+
+        const interval = setInterval(() => {
+            setTimeRemaining(prev => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    handleAutoSubmit();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [timerActive, timeRemaining]);
+
+    const handleAutoSubmit = async () => {
+        setIsFinished(true);
+        try {
+            await completeQuizMutation({
+                quizId: quiz._id,
+                score,
+                totalQuestions: quiz.questions.length
+            });
+        } catch (err) {
+            console.error("Auto-submit failed:", err);
+        }
+    };
 
     const handleNext = async () => {
         const isLastQuestion = currentStep === quiz.questions.length - 1;
@@ -356,6 +393,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
             setSelectedOption(null);
         } else {
             setIsFinished(true);
+            setTimerActive(false);
             try {
                 await completeQuizMutation({
                     quizId: quiz._id,
@@ -368,6 +406,53 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
         }
     };
 
+    const formatTime = (seconds: number) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    };
+
+    // Block if already submitted (single-attempt)
+    if (quiz.singleAttempt && hasSubmitted) {
+        return (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-10 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mx-auto text-2xl">🔒</div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">Already Completed</h3>
+                        <p className="text-slate-500 font-medium text-sm">You have already submitted this quiz. Single-attempt quizzes can only be taken once.</p>
+                    </div>
+                    <button onClick={onClose} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-700 transition-all">
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Timer start screen (if timed quiz)
+    if (quiz.timeLimitMinutes && !timerStarted) {
+        return (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-10 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto text-2xl">⏱️</div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">{quiz.title}</h3>
+                        <p className="text-slate-500 font-medium text-sm">This is a timed quiz. You have <strong>{quiz.timeLimitMinutes} minutes</strong> to complete {quiz.questions.length} questions.</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">
+                            Cancel
+                        </button>
+                        <button onClick={() => { setTimerStarted(true); setTimerActive(true); }} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all">
+                            Start Timer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-300">
@@ -378,9 +463,16 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
                                 <h3 className="font-bold tracking-tight">{quiz.title}</h3>
                                 <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Question {currentStep + 1} of {quiz.questions.length}</p>
                             </div>
-                            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
-                                <X className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-3">
+                                {quiz.timeLimitMinutes && (
+                                    <div className={`px-3 py-1 rounded-full bg-white/20 text-[11px] font-black tracking-wider ${timeRemaining < 60 ? "animate-pulse text-rose-200" : ""}`}>
+                                        {formatTime(timeRemaining)}
+                                    </div>
+                                )}
+                                <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
                         <div className="p-8 space-y-6">
                             <h4 className="text-lg font-bold text-slate-900 leading-tight">
@@ -425,7 +517,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
                         </div>
                         <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 inline-block px-8">
                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">XP Earned</p>
-                            <p className="text-2xl font-black text-emerald-700">+{score * XP_PER_QUESTION}</p>
+                            <p className="text-2xl font-black text-emerald-700">+{score * xpPerCorrect}</p>
                         </div>
                         <button
                             onClick={() => onComplete(score)}

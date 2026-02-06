@@ -237,8 +237,9 @@ export const getMyClasses = query({
     if (!data || !data.user) return [];
     const user = data.user;
 
+    let classes = [];
     if (user.role === "teacher") {
-      return await ctx.db
+      classes = await ctx.db
         .query("classes")
         .withIndex("teacher", (q) => q.eq("teacherId", user.email))
         .collect();
@@ -248,13 +249,24 @@ export const getMyClasses = query({
         .withIndex("student", (q) => q.eq("studentId", user.email))
         .collect();
 
-      const classes = [];
       for (const membership of memberships) {
         const classDoc = await ctx.db.get(membership.classId);
         if (classDoc) classes.push(classDoc);
       }
-      return classes;
     }
+
+    // Enrich with banner URLs
+    const enrichedClasses = await Promise.all(
+      classes.map(async (c) => {
+        let bannerUrl = null;
+        if (c.bannerStorageId) {
+          bannerUrl = await ctx.storage.getUrl(c.bannerStorageId);
+        }
+        return { ...c, bannerUrl };
+      })
+    );
+
+    return enrichedClasses;
   },
 });
 
@@ -530,6 +542,11 @@ export const createQuiz = mutation({
       correctOption: v.number(),
     })),
     xpValue: v.number(),
+    xpPerQuestion: v.optional(v.number()),
+    timeLimitMinutes: v.optional(v.number()),
+    gradesPublic: v.optional(v.boolean()),
+    singleAttempt: v.optional(v.boolean()),
+    dueDate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const data = await getCurrentUserData(ctx);
@@ -542,6 +559,11 @@ export const createQuiz = mutation({
       questions: args.questions,
       authorEmail: data.user.email,
       xpValue: args.xpValue,
+      xpPerQuestion: args.xpPerQuestion,
+      timeLimitMinutes: args.timeLimitMinutes,
+      gradesPublic: args.gradesPublic,
+      singleAttempt: args.singleAttempt,
+      dueDate: args.dueDate,
     });
   },
 });
@@ -615,7 +637,19 @@ export const completeQuiz = mutation({
     const quiz = await ctx.db.get(quizId);
     if (!quiz) throw new Error("Quiz not found");
 
-    // Prevent double submission? For now let's just record it
+    // Check for single-attempt enforcement
+    if (quiz.singleAttempt) {
+      const existingSubmission = await ctx.db
+        .query("quizSubmissions")
+        .withIndex("quiz", (q) => q.eq("quizId", quizId))
+        .filter((q) => q.eq(q.field("studentId"), data.user!.email))
+        .first();
+
+      if (existingSubmission) {
+        throw new Error("You have already completed this quiz.");
+      }
+    }
+
     await ctx.db.insert("quizSubmissions", {
       quizId,
       studentId: data.user.email,
@@ -624,12 +658,29 @@ export const completeQuiz = mutation({
       completedAt: Date.now(),
     });
 
-    // Award XP: 5 XP per correct answer
-    const xpAward = score * 5;
+    // Award XP: use xpPerQuestion if set, otherwise fallback to 5 XP per correct answer
+    const xpAward = quiz.xpPerQuestion ? score * quiz.xpPerQuestion : score * 5;
     await ctx.db.patch(data.user._id, {
       xp: (data.user.xp || 0) + xpAward,
     });
 
     return { success: true, xpAwarded: xpAward };
+  },
+});
+
+// Query to check if user has already submitted a quiz
+export const hasSubmittedQuiz = query({
+  args: { quizId: v.id("quizzes") },
+  handler: async (ctx, { quizId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return false;
+
+    const submission = await ctx.db
+      .query("quizSubmissions")
+      .withIndex("quiz", (q) => q.eq("quizId", quizId))
+      .filter((q) => q.eq(q.field("studentId"), data.user!.email))
+      .first();
+
+    return !!submission;
   },
 });

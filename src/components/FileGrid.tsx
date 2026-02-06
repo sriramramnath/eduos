@@ -13,8 +13,9 @@ export function FileGrid({ files, userRole }: FileGridProps) {
   const [selectedFile, setSelectedFile] = useState<Doc<"files"> | null>(null);
   const [assignmentFile, setAssignmentFile] = useState<Doc<"files"> | null>(null);
 
-  const getFileIcon = (mimeType: string) => {
+  const getFileIcon = (mimeType: string, fileName: string) => {
     const iconClass = "w-6 h-6";
+    if (fileName.toLowerCase().endsWith(".mxb")) return <Presentation className={`${iconClass} text-violet-500`} />;
     if (mimeType.includes("word")) return <FileText className={iconClass} />;
     if (mimeType.includes("presentation")) return <Presentation className={iconClass} />;
     if (mimeType.includes("sheet")) return <FileSpreadsheet className={iconClass} />;
@@ -49,7 +50,7 @@ export function FileGrid({ files, userRole }: FileGridProps) {
           >
             <div className="flex items-start gap-3 mb-4">
               <div className="w-10 h-10 bg-emerald-50 rounded-md flex items-center justify-center text-emerald-600 border border-emerald-100 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                {getFileIcon(file.mimeType)}
+                {getFileIcon(file.mimeType, file.name)}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-bold text-slate-900 truncate tracking-tight group-hover:text-emerald-600 transition-colors">{file.name}</h3>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { X, Plus, Trash2, CheckCircle2, Circle, Loader2 } from "lucide-react";
+import { X, Plus, Trash2, CheckCircle2, Circle, Loader2, Clock, Calendar, Zap, Eye, Lock } from "lucide-react";
 
 interface QuizCreatorProps {
     classId: Id<"classes">;
@@ -39,6 +39,16 @@ export function QuizCreator({ classId, onClose, onSuccess }: QuizCreatorProps) {
         setQuestions(newQuestions);
     };
 
+    // New configuration states
+    const [xpMode, setXpMode] = useState<"overall" | "perQuestion">("overall");
+    const [xpPerQuestion, setXpPerQuestion] = useState(10);
+    const [overallXp, setOverallXp] = useState(questions.length * 10);
+    const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | undefined>(undefined);
+    const [enableTimer, setEnableTimer] = useState(false);
+    const [gradesPublic, setGradesPublic] = useState(true);
+    const [singleAttempt, setSingleAttempt] = useState(true);
+    const [dueDate, setDueDate] = useState<string>("");
+
     const handleSubmit = async () => {
         if (!title.trim() || questions.some(q => !q.question.trim() || q.options.some(o => !o.trim()))) {
             alert("Please fill in all fields.");
@@ -51,7 +61,12 @@ export function QuizCreator({ classId, onClose, onSuccess }: QuizCreatorProps) {
                 classId,
                 title,
                 questions,
-                xpValue: questions.length * 10
+                xpValue: xpMode === "overall" ? overallXp : questions.length * xpPerQuestion,
+                xpPerQuestion: xpMode === "perQuestion" ? xpPerQuestion : undefined,
+                timeLimitMinutes: enableTimer ? timeLimitMinutes : undefined,
+                gradesPublic,
+                singleAttempt,
+                dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
             });
             onSuccess();
         } catch (err) {
@@ -147,12 +162,121 @@ export function QuizCreator({ classId, onClose, onSuccess }: QuizCreatorProps) {
                             Add Question
                         </button>
                     </div>
+
+                    {/* New Configuration Panel */}
+                    <div className="p-5 bg-slate-50/70 rounded-xl border border-slate-100 space-y-5">
+                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <Zap className="w-3 h-3" /> Quiz Settings
+                        </h3>
+
+                        {/* XP Configuration */}
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">XP Award Mode</label>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setXpMode("overall")}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all ${xpMode === "overall" ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}
+                                >
+                                    Overall XP
+                                </button>
+                                <button
+                                    onClick={() => setXpMode("perQuestion")}
+                                    className={`flex-1 py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest border transition-all ${xpMode === "perQuestion" ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}
+                                >
+                                    Per Question
+                                </button>
+                            </div>
+                            {xpMode === "overall" ? (
+                                <input
+                                    type="number"
+                                    value={overallXp}
+                                    onChange={(e) => setOverallXp(Math.max(0, parseInt(e.target.value) || 0))}
+                                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-500/50"
+                                    placeholder="Total XP for quiz"
+                                />
+                            ) : (
+                                <input
+                                    type="number"
+                                    value={xpPerQuestion}
+                                    onChange={(e) => setXpPerQuestion(Math.max(0, parseInt(e.target.value) || 0))}
+                                    className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-500/50"
+                                    placeholder="XP per correct answer"
+                                />
+                            )}
+                        </div>
+
+                        {/* Timer Configuration */}
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-slate-400" />
+                                <span className="text-xs font-bold text-slate-700">Enable Timer</span>
+                            </div>
+                            <button
+                                onClick={() => setEnableTimer(!enableTimer)}
+                                className={`w-10 h-5 rounded-full transition-all relative ${enableTimer ? "bg-emerald-500" : "bg-slate-200"}`}
+                            >
+                                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${enableTimer ? "left-5" : "left-0.5"}`}></div>
+                            </button>
+                        </div>
+                        {enableTimer && (
+                            <input
+                                type="number"
+                                value={timeLimitMinutes || ""}
+                                onChange={(e) => setTimeLimitMinutes(parseInt(e.target.value) || undefined)}
+                                placeholder="Time limit in minutes"
+                                className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-900 focus:outline-none focus:border-emerald-500/50"
+                            />
+                        )}
+
+                        {/* Grade Visibility */}
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <Eye className="w-4 h-4 text-slate-400" />
+                                <span className="text-xs font-bold text-slate-700">Public Grades</span>
+                            </div>
+                            <button
+                                onClick={() => setGradesPublic(!gradesPublic)}
+                                className={`w-10 h-5 rounded-full transition-all relative ${gradesPublic ? "bg-emerald-500" : "bg-slate-200"}`}
+                            >
+                                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${gradesPublic ? "left-5" : "left-0.5"}`}></div>
+                            </button>
+                        </div>
+
+                        {/* Single Attempt */}
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-100">
+                            <div className="flex items-center gap-2">
+                                <Lock className="w-4 h-4 text-slate-400" />
+                                <span className="text-xs font-bold text-slate-700">Single Attempt Only</span>
+                            </div>
+                            <button
+                                onClick={() => setSingleAttempt(!singleAttempt)}
+                                className={`w-10 h-5 rounded-full transition-all relative ${singleAttempt ? "bg-emerald-500" : "bg-slate-200"}`}
+                            >
+                                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${singleAttempt ? "left-5" : "left-0.5"}`}></div>
+                            </button>
+                        </div>
+
+                        {/* Due Date */}
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> Due Date (Optional)
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500/50"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{questions.length * 10} XP Reward for students</span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                            {xpMode === "overall" ? overallXp : questions.length * xpPerQuestion} XP Reward for students
+                        </span>
                     </div>
                     <div className="flex items-center gap-3">
                         <button

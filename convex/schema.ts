@@ -86,6 +86,11 @@ export default defineSchema({
     })),
     authorEmail: v.string(),
     xpValue: v.number(),
+    xpPerQuestion: v.optional(v.number()),       // XP per question (overrides xpValue if set)
+    timeLimitMinutes: v.optional(v.number()),    // Optional homework timer
+    gradesPublic: v.optional(v.boolean()),       // Teacher decides grade visibility
+    singleAttempt: v.optional(v.boolean()),      // Student can only attempt once
+    dueDate: v.optional(v.number()),             // Due date for homework tracking
   }).index("class", ["classId"]),
 
   quizSubmissions: defineTable({

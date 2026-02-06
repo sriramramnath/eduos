@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Doc } from "../../convex/_generated/dataModel";
-import { X, Download, Image as ImageIcon, File, Globe, Layout, Edit3 } from "lucide-react";
+import { X, Download, Image as ImageIcon, File, Globe, Layout, Edit3, Presentation, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import WebViewer from "@pdftron/webviewer";
 
@@ -40,6 +40,8 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
     file.mimeType.includes("pdf") ||
     file.name.toLowerCase().endsWith(".pdf")
   );
+
+  const isMaxboardFile = file.name.toLowerCase().endsWith(".mxb");
 
   useEffect(() => {
     if (isOfficeDoc && viewer.current && fileUrl) {
@@ -203,7 +205,34 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
         )}
 
         <div className="flex-1 relative overflow-hidden flex flex-col">
-          {!isOfficeDoc ? (
+          {isMaxboardFile ? (
+            <div className="flex-1 overflow-auto p-8 md:p-16 bg-gradient-to-br from-violet-50 via-white to-slate-50 flex items-center justify-center">
+              <div className="text-center py-12 px-12 bg-white rounded-2xl border border-violet-100 shadow-lg max-w-md w-full space-y-6">
+                <div className="w-20 h-20 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-600 mx-auto border border-violet-200 shadow-inner">
+                  <Presentation className="w-10 h-10" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-slate-900 tracking-tight">Maxboard Whiteboard</h3>
+                  <p className="text-sm text-slate-500 font-medium leading-relaxed">This is a Maxboard (.mxb) project file. To view or edit, open it in the Maxboard desktop application.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button
+                    onClick={() => window.open(fileUrl || "")}
+                    className="flex-1 bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-[11px] tracking-widest uppercase flex items-center justify-center gap-2 hover:bg-slate-800 transition-all shadow-md"
+                  >
+                    <Download className="w-4 h-4" /> Download
+                  </button>
+                  <button
+                    onClick={() => window.open(`maxboard://${fileUrl}`, "_blank")}
+                    className="flex-1 bg-violet-600 text-white px-6 py-3 rounded-xl font-bold text-[11px] tracking-widest uppercase flex items-center justify-center gap-2 hover:bg-violet-700 transition-all shadow-md"
+                  >
+                    <ExternalLink className="w-4 h-4" /> Open in App
+                  </button>
+                </div>
+                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Requires Maxboard by Biro</p>
+              </div>
+            </div>
+          ) : !isOfficeDoc ? (
             <div className="flex-1 overflow-auto p-6 bg-slate-100/30 flex items-center justify-center">
               {!fileUrl ? (
                 <div className="text-center py-24 animate-pulse text-slate-400 font-bold">Connecting to storage...</div>

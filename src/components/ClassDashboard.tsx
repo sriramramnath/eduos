@@ -106,9 +106,16 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass 
                 onClick={() => setSelectedClass(c)}
                 className="premium-card group cursor-pointer overflow-hidden border-slate-200"
               >
-                {/* Visual Header */}
+                {/* Visual Header with Banner */}
                 <div className="h-32 bg-slate-900 relative overflow-hidden flex items-end p-6">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/20 to-transparent"></div>
+                  {c.bannerUrl && (
+                    <img
+                      src={c.bannerUrl}
+                      alt={c.name}
+                      className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
                   <h3 className="text-xl font-bold text-white relative z-10 tracking-tight leading-tight group-hover:text-emerald-400 transition-colors">
                     {c.name}
                   </h3>
