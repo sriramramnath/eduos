@@ -2,16 +2,17 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { ClassView } from "./ClassView";
-import { Link, Plus, School } from "lucide-react";
+import { Link, Plus, School, Settings } from "lucide-react";
 
 interface ClassDashboardProps {
   user: any;
   classes: any[];
   selectedClass: any;
   setSelectedClass: (cls: any) => void;
+  onOpenSettings: () => void;
 }
 
-export function ClassDashboard({ user, classes, selectedClass, setSelectedClass }: ClassDashboardProps) {
+export function ClassDashboard({ user, classes, selectedClass, setSelectedClass, onOpenSettings }: ClassDashboardProps) {
   const [showCreateClass, setShowCreateClass] = useState(false);
   const [showJoinClass, setShowJoinClass] = useState(false);
   const [newClassName, setNewClassName] = useState("");
@@ -54,6 +55,12 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass 
           <p className="text-sm text-slate-500 font-medium">Manage your learning workspaces.</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={onOpenSettings}
+            className="px-4 py-2 rounded-md border border-slate-200 font-bold text-[11px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
+          >
+            <Settings className="w-3.5 h-3.5" /> Settings
+          </button>
           <button
             onClick={() => setShowJoinClass(true)}
             className="px-4 py-2 rounded-md border border-slate-200 font-bold text-[11px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"

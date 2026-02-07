@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { Send, Paperclip, GraduationCap, Loader2 } from "lucide-react";
+import { Send, Paperclip, GraduationCap, Loader2, Link as LinkIcon, Presentation, X } from "lucide-react";
 import { QuizCreator } from "./QuizCreator";
 
 interface ComposerProps {
@@ -15,11 +15,16 @@ export function Composer({ classId, user }: ComposerProps) {
     const [text, setText] = useState("");
     const [isPosting, setIsPosting] = useState(false);
     const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+    const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+    const [linkTitle, setLinkTitle] = useState("");
+    const [linkUrl, setLinkUrl] = useState("");
+    const [linkIsWhiteboard, setLinkIsWhiteboard] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const postAnnouncement = useMutation(api.myFunctions.createAnnouncement);
     const generateUploadUrl = useMutation(api.myFunctions.generateUploadUrl);
     const uploadFile = useMutation(api.myFunctions.uploadFile);
+    const createLink = useMutation(api.myFunctions.createLink);
 
     const handlePost = async () => {
         if (!text.trim()) return;
@@ -59,6 +64,48 @@ export function Composer({ classId, user }: ComposerProps) {
                 isAssignment: false,
             });
             setIsExpanded(false);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsPosting(false);
+        }
+    };
+
+    const createExcalidrawLink = () => {
+        const room = Math.random().toString(36).slice(2, 10);
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let key = "";
+        const bytes = new Uint8Array(22);
+        window.crypto.getRandomValues(bytes);
+        for (let i = 0; i < 22; i += 1) {
+            key += chars[bytes[i] % chars.length];
+        }
+        return `https://excalidraw.com/#room=${room},${key}`;
+    };
+
+    const openLinkModal = (options?: { whiteboard?: boolean }) => {
+        const isWhiteboard = options?.whiteboard ?? false;
+        setLinkIsWhiteboard(isWhiteboard);
+        setLinkTitle(isWhiteboard ? "New Excalidraw Whiteboard" : "");
+        setLinkUrl(isWhiteboard ? createExcalidrawLink() : "");
+        setIsLinkModalOpen(true);
+    };
+
+    const handleCreateLink = async () => {
+        if (!linkTitle.trim() || !linkUrl.trim()) return;
+        setIsPosting(true);
+        try {
+            await createLink({
+                classId,
+                title: linkTitle.trim(),
+                url: linkUrl.trim(),
+                isWhiteboard: linkIsWhiteboard || undefined,
+            });
+            setIsLinkModalOpen(false);
+            setIsExpanded(false);
+            setLinkTitle("");
+            setLinkUrl("");
+            setLinkIsWhiteboard(false);
         } catch (err) {
             console.error(err);
         } finally {
@@ -125,6 +172,20 @@ export function Composer({ classId, user }: ComposerProps) {
                                 <GraduationCap className="w-4 h-4 text-emerald-500" />
                                 Quiz
                             </button>
+                            <button
+                                onClick={() => openLinkModal()}
+                                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-bold text-[11px] uppercase tracking-wider"
+                            >
+                                <LinkIcon className="w-4 h-4 text-emerald-500" />
+                                Link
+                            </button>
+                            <button
+                                onClick={() => openLinkModal({ whiteboard: true })}
+                                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-bold text-[11px] uppercase tracking-wider"
+                            >
+                                <Presentation className="w-4 h-4 text-violet-500" />
+                                Whiteboard
+                            </button>
                         </div>
 
                         <div className="flex items-center gap-2">
@@ -156,6 +217,70 @@ export function Composer({ classId, user }: ComposerProps) {
                         setIsExpanded(false);
                     }}
                 />
+            )}
+
+            {isLinkModalOpen && (
+                <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-900">{linkIsWhiteboard ? "Create Whiteboard" : "Attach Link"}</h3>
+                                <p className="text-xs text-slate-500 font-medium">
+                                    {linkIsWhiteboard ? "Share a Maxboard whiteboard with your class." : "Share a link as a class resource."}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsLinkModalOpen(false)}
+                                className="w-8 h-8 rounded-md bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-900 hover:border-slate-300 transition-all shadow-sm"
+                                title="Close"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Title</label>
+                                <input
+                                    value={linkTitle}
+                                    onChange={(e) => setLinkTitle(e.target.value)}
+                                    placeholder={linkIsWhiteboard ? "Chapter 5 Whiteboard" : "Resource Title"}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-md px-4 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500/50"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Link URL</label>
+                                <input
+                                    value={linkUrl}
+                                    onChange={(e) => setLinkUrl(e.target.value)}
+                                    placeholder="https://"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded-md px-4 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500/50"
+                                />
+                            </div>
+                            {linkIsWhiteboard && (
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    A unique Excalidraw room link is generated automatically.
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsLinkModalOpen(false)}
+                                className="flex-1 bg-slate-100 text-slate-600 py-2.5 rounded-md font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCreateLink}
+                                disabled={!linkTitle.trim() || !linkUrl.trim() || isPosting}
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-50"
+                            >
+                                {isPosting ? "Saving..." : "Share"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

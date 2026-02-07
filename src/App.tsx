@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
-import { LogOut, Zap, Rocket, GraduationCap, Presentation } from "lucide-react";
+import { SettingsPage } from "./components/SettingsPage";
+import { LogOut, Rocket, GraduationCap, Presentation } from "lucide-react";
 
 export default function App() {
   return (
@@ -24,6 +25,16 @@ function DashboardContent() {
   const user = useQuery(api.myFunctions.getCurrentUser);
   const classes = useQuery(api.myFunctions.getMyClasses) || [];
   const [selectedClass, setSelectedClass] = useState<any>(null);
+  const [activePage, setActivePage] = useState<"dashboard" | "settings">("dashboard");
+  const [theme, setTheme] = useState<"sun" | "moon">("sun");
+
+  useEffect(() => {
+    if (theme === "sun") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+  }, [theme]);
 
   if (user === undefined) return <LoadingScreen />;
   if (!user) return <LandingPage />;
@@ -34,63 +45,27 @@ function DashboardContent() {
   return (
     <div className="flex flex-col min-h-screen bg-transparent overflow-hidden relative">
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Top Header - Minimalist Hub Branding */}
-        <header className="h-14 flex items-center justify-between px-6 md:px-12 bg-white/70 backdrop-blur-2xl sticky top-0 z-40 shrink-0 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)]">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-5 bg-emerald-500 rounded-sm shadow-[0_0_12px_rgba(16,185,129,0.3)]"></div>
-              <span className="font-black text-slate-900 tracking-tighter text-lg">EduOS</span>
-            </div>
-            {!selectedClass && (
-              <>
-                <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block"></div>
-                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hidden sm:block">Class Hub</h2>
-              </>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            {!selectedClass && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100 shadow-sm">
-                <Zap className="w-3 h-3 text-emerald-500 fill-emerald-500" />
-                <span className="text-emerald-700 font-black text-[11px] tracking-tight">{user.xp || 0}</span>
-              </div>
-            )}
-
-            <button
-              onClick={() => signOut()}
-              className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all text-slate-400 hover:text-red-500 hover:border-red-100 group shadow-sm bg-white"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
-            </button>
-
-            {!selectedClass && (
-              <div className="flex items-center gap-3 pl-2 border-l border-slate-100">
-                <div className="text-right hidden sm:block">
-                  <p className="text-[9px] font-black text-slate-900 leading-none">{user.name}</p>
-                  <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1">Active Now</p>
-                </div>
-                <img
-                  src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
-                  className="w-8 h-8 rounded-xl border-2 border-white shadow-lg ring-1 ring-slate-100"
-                  alt={user.name}
-                />
-              </div>
-            )}
-          </div>
-        </header>
-
         {/* Main Content Area */}
         <main className={`flex-1 overflow-auto scrollbar-hide ${selectedClass ? 'p-0' : 'p-6 md:p-12'}`}>
           <div className="max-w-7xl mx-auto min-h-full pb-20 md:pb-0">
             <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <ClassDashboard
-                user={user}
-                classes={classes}
-                selectedClass={selectedClass}
-                setSelectedClass={setSelectedClass}
-              />
+              {activePage === "settings" ? (
+                <SettingsPage
+                  user={user}
+                  onBack={() => setActivePage("dashboard")}
+                  onSignOut={() => signOut()}
+                  theme={theme}
+                  onThemeChange={setTheme}
+                />
+              ) : (
+                <ClassDashboard
+                  user={user}
+                  classes={classes}
+                  selectedClass={selectedClass}
+                  setSelectedClass={setSelectedClass}
+                  onOpenSettings={() => setActivePage("settings")}
+                />
+              )}
             </div>
           </div>
         </main>

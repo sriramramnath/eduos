@@ -76,6 +76,33 @@ export default defineSchema({
     authorEmail: v.string(),
   }).index("class", ["classId"]),
 
+  links: defineTable({
+    classId: v.id("classes"),
+    title: v.string(),
+    url: v.string(),
+    createdBy: v.string(),
+    isWhiteboard: v.optional(v.boolean()),
+  }).index("class", ["classId"]),
+
+  exams: defineTable({
+    classId: v.id("classes"),
+    name: v.string(),
+    createdBy: v.string(),
+    isVisibleToStudents: v.boolean(),
+  }).index("class", ["classId"]),
+
+  grades: defineTable({
+    classId: v.id("classes"),
+    examId: v.id("exams"),
+    studentId: v.string(), // email
+    score: v.optional(v.number()),
+    letterGrade: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("class", ["classId"])
+    .index("exam", ["examId"])
+    .index("student", ["studentId"]),
+
   quizzes: defineTable({
     classId: v.id("classes"),
     title: v.string(),

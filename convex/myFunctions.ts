@@ -283,6 +283,19 @@ export const getClassFiles = query({
   },
 });
 
+export const getClassLinks = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+
+    return await ctx.db
+      .query("links")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+  },
+});
+
 export const uploadFile = mutation({
   args: {
     name: v.string(),
@@ -314,6 +327,162 @@ export const uploadFile = mutation({
       uploadedBy: data.user.email,
       editable,
       isAssignment: args.isAssignment,
+    });
+  },
+});
+
+export const createLink = mutation({
+  args: {
+    classId: v.id("classes"),
+    title: v.string(),
+    url: v.string(),
+    isWhiteboard: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { classId, title, url, isWhiteboard }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can create links");
+
+    return await ctx.db.insert("links", {
+      classId,
+      title,
+      url,
+      createdBy: data.user.email,
+      isWhiteboard,
+    });
+  },
+});
+
+export const createExam = mutation({
+  args: {
+    classId: v.id("classes"),
+    name: v.string(),
+    isVisibleToStudents: v.boolean(),
+  },
+  handler: async (ctx, { classId, name, isVisibleToStudents }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can create exams");
+
+    return await ctx.db.insert("exams", {
+      classId,
+      name,
+      createdBy: data.user.email,
+      isVisibleToStudents,
+    });
+  },
+});
+
+export const updateExam = mutation({
+  args: {
+    examId: v.id("exams"),
+    name: v.optional(v.string()),
+    isVisibleToStudents: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { examId, name, isVisibleToStudents }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can update exams");
+
+    const patch: { name?: string; isVisibleToStudents?: boolean } = {};
+    if (name !== undefined) patch.name = name;
+    if (isVisibleToStudents !== undefined) patch.isVisibleToStudents = isVisibleToStudents;
+    if (Object.keys(patch).length === 0) return;
+
+    await ctx.db.patch(examId, patch);
+  },
+});
+
+export const deleteExam = mutation({
+  args: { examId: v.id("exams") },
+  handler: async (ctx, { examId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can delete exams");
+
+    const exam = await ctx.db.get(examId);
+    if (!exam) return;
+
+    const grades = await ctx.db
+      .query("grades")
+      .withIndex("exam", (q) => q.eq("examId", examId))
+      .collect();
+    for (const grade of grades) {
+      await ctx.db.delete(grade._id);
+    }
+
+    await ctx.db.delete(examId);
+  },
+});
+
+export const getClassExams = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+
+    const exams = await ctx.db
+      .query("exams")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    if (data.user.role === "teacher") return exams;
+    return exams.filter((exam) => exam.isVisibleToStudents);
+  },
+});
+
+export const getClassGrades = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+
+    const grades = await ctx.db
+      .query("grades")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    if (data.user.role === "teacher") return grades;
+
+    return grades.filter((grade) => grade.studentId === data.user!.email);
+  },
+});
+
+export const setGrade = mutation({
+  args: {
+    classId: v.id("classes"),
+    examId: v.id("exams"),
+    studentId: v.string(),
+    score: v.optional(v.number()),
+    letterGrade: v.optional(v.string()),
+  },
+  handler: async (ctx, { classId, examId, studentId, score, letterGrade }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can set grades");
+
+    const existing = await ctx.db
+      .query("grades")
+      .withIndex("exam", (q) => q.eq("examId", examId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        score,
+        letterGrade,
+        updatedAt: Date.now(),
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("grades", {
+      classId,
+      examId,
+      studentId,
+      score,
+      letterGrade,
+      updatedAt: Date.now(),
     });
   },
 });
@@ -581,6 +750,11 @@ export const getStreamEntries = query({
       .withIndex("class", (q) => q.eq("classId", classId))
       .collect();
 
+    const links = await ctx.db
+      .query("links")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
     const quizzes = await ctx.db
       .query("quizzes")
       .withIndex("class", (q) => q.eq("classId", classId))
@@ -589,10 +763,11 @@ export const getStreamEntries = query({
     // Map entries to a common format
     const fileEntries = files.map(f => ({ ...f, entryType: "file" }));
     const announcementEntries = announcements.map(a => ({ ...a, entryType: "announcement" }));
+    const linkEntries = links.map(l => ({ ...l, entryType: "link" }));
     const quizEntries = quizzes.map(q => ({ ...q, entryType: "quiz" }));
 
     // Merge and sort by creation time (most recent first)
-    const combined = [...fileEntries, ...announcementEntries, ...quizEntries];
+    const combined = [...fileEntries, ...announcementEntries, ...linkEntries, ...quizEntries];
     return combined.sort((a, b) => b._creationTime - a._creationTime);
   },
 });
@@ -637,18 +812,11 @@ export const completeQuiz = mutation({
     const quiz = await ctx.db.get(quizId);
     if (!quiz) throw new Error("Quiz not found");
 
-    // Check for single-attempt enforcement
-    if (quiz.singleAttempt) {
-      const existingSubmission = await ctx.db
-        .query("quizSubmissions")
-        .withIndex("quiz", (q) => q.eq("quizId", quizId))
-        .filter((q) => q.eq(q.field("studentId"), data.user!.email))
-        .first();
-
-      if (existingSubmission) {
-        throw new Error("You have already completed this quiz.");
-      }
-    }
+    const existingSubmission = await ctx.db
+      .query("quizSubmissions")
+      .withIndex("quiz", (q) => q.eq("quizId", quizId))
+      .filter((q) => q.eq(q.field("studentId"), data.user!.email))
+      .first();
 
     await ctx.db.insert("quizSubmissions", {
       quizId,
@@ -658,13 +826,15 @@ export const completeQuiz = mutation({
       completedAt: Date.now(),
     });
 
-    // Award XP: use xpPerQuestion if set, otherwise fallback to 5 XP per correct answer
-    const xpAward = quiz.xpPerQuestion ? score * quiz.xpPerQuestion : score * 5;
-    await ctx.db.patch(data.user._id, {
-      xp: (data.user.xp || 0) + xpAward,
-    });
+    // Award XP only on the first completion
+    const xpAward = existingSubmission ? 0 : (quiz.xpPerQuestion ? score * quiz.xpPerQuestion : score * 5);
+    if (!existingSubmission) {
+      await ctx.db.patch(data.user._id, {
+        xp: (data.user.xp || 0) + xpAward,
+      });
+    }
 
-    return { success: true, xpAwarded: xpAward };
+    return { success: true, xpAwarded: xpAward, alreadyCompleted: !!existingSubmission };
   },
 });
 
