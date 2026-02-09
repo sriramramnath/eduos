@@ -34,7 +34,7 @@ export function SettingsPage({ user, onBack, onSignOut, theme, onThemeChange }: 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="premium-card p-6">
+        <div className="premium-card p-6 relative">
           <div className="flex items-center gap-2 text-slate-600 mb-4">
             <User className="w-4 h-4" />
             <h3 className="text-sm font-bold">Profile</h3>
@@ -52,7 +52,7 @@ export function SettingsPage({ user, onBack, onSignOut, theme, onThemeChange }: 
           </div>
         </div>
 
-        <div className="premium-card p-6">
+        <div className="premium-card p-6 relative">
           <div className="flex items-center gap-2 text-slate-600 mb-4">
             <Shield className="w-4 h-4" />
             <h3 className="text-sm font-bold">Account</h3>
@@ -69,7 +69,7 @@ export function SettingsPage({ user, onBack, onSignOut, theme, onThemeChange }: 
           </div>
         </div>
 
-        <div className="premium-card p-6">
+        <div className="premium-card p-6 relative">
           <div className="flex items-center gap-2 text-slate-600 mb-4">
             <Bell className="w-4 h-4" />
             <h3 className="text-sm font-bold">Notifications</h3>

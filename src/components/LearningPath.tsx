@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { Plus, Zap, Check } from "lucide-react";
+import { Plus, Zap, Check, BookOpen, ClipboardCheck, Dumbbell } from "lucide-react";
+import { BookMascot } from "./BookMascot";
 
 interface LearningPathProps {
     classId: Id<"classes">;
@@ -20,6 +21,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
     const [newTitle, setNewTitle] = useState("");
     const [newDesc, setNewDesc] = useState("");
     const [newContent, setNewContent] = useState("");
+    const mascotName = "Pagey";
 
     const handleAddUnit = async () => {
         if (!newTitle) return;
@@ -50,7 +52,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
     };
 
     return (
-        <div className="max-w-2xl mx-auto py-10 space-y-16 relative animate-in fade-in duration-500 text-left">
+        <div className="max-w-3xl mx-auto py-10 space-y-16 relative animate-in fade-in duration-500 text-left">
             {user.role === "teacher" && (
                 <div className="flex justify-end mb-8">
                     <button
@@ -130,18 +132,31 @@ export function LearningPath({ classId, user }: LearningPathProps) {
             )}
 
             {learningPath.length === 0 ? (
-                <div className="text-center py-24 rounded-[3.5rem] bg-slate-50 border-2 border-dashed border-slate-100">
-                    <p className="text-slate-400 font-bold italic">Curriculum is coming soon!</p>
+                <div className="text-center py-20 rounded-[2.5rem] bg-slate-50 border-2 border-dashed border-slate-200 space-y-4">
+                    <div className="flex justify-center">
+                        <BookMascot mood="sleepy" size={120} label={`${mascotName} waiting for lessons`} />
+                    </div>
+                    <p className="text-slate-500 font-bold">Curriculum is coming soon!</p>
+                    <p className="text-xs text-slate-400 font-medium">Ask a teacher to add units and lessons to wake {mascotName} up.</p>
                 </div>
             ) : (
                 learningPath.map((unit: any, uIdx: number) => {
+                    const lessons = unit.lessons || [];
+                    const firstIncompleteIndex = lessons.findIndex((lesson: any) => !lesson.isCompleted);
                     return (
-                        <div key={unit._id} className="space-y-8">
-                            <div className="p-6 rounded-md bg-white border border-slate-200 shadow-sm relative group overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 mb-1">Unit {uIdx + 1}</p>
-                                <h2 className="text-xl font-bold mb-1 text-slate-900 tracking-tight">{unit.title}</h2>
-                                <p className="text-slate-500 font-medium leading-relaxed max-w-md text-xs">{unit.description}</p>
+                        <div key={unit._id} className="space-y-10">
+                            <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm relative group overflow-hidden">
+                                <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-10">
+                                    <div>
+                                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600 mb-1">Unit {uIdx + 1}</p>
+                                        <h2 className="text-xl font-bold mb-1 text-slate-900 tracking-tight">{unit.title}</h2>
+                                        <p className="text-slate-500 font-medium leading-relaxed max-w-md text-xs">{unit.description}</p>
+                                    </div>
+                                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                        {lessons.length} lessons
+                                    </div>
+                                </div>
 
                                 {user.role === "teacher" && (
                                     <button
@@ -153,37 +168,57 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                                 )}
                             </div>
 
-                            <div className="flex flex-col items-center gap-10 relative">
-                                {/* Path line */}
-                                <div className="absolute top-0 bottom-0 w-2 bg-slate-100 rounded-full left-1/2 -translate-x-1/2 z-0" />
+                            <div className="relative flex flex-col items-center gap-12 py-6">
+                                <div className="absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 bg-gradient-to-b from-emerald-200 via-emerald-100 to-slate-100 rounded-full" />
+                                <div className="absolute inset-y-0 left-1/2 w-28 -translate-x-1/2 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_rgba(255,255,255,0))] opacity-70" />
 
-                                {unit.lessons.map((lesson: any, idx: number) => {
+                                {lessons.map((lesson: any, idx: number) => {
                                     const isOdd = idx % 2 !== 0;
+                                    const offsetClass = isOdd ? "translate-x-14 md:translate-x-24" : "-translate-x-14 md:-translate-x-24";
+                                    const nodeType = idx % 3 === 0 ? "practice" : idx % 3 === 1 ? "learn" : "quiz";
+                                    const isCompleted = !!lesson.isCompleted;
+                                    const isCurrent = firstIncompleteIndex === idx;
+                                    const isLocked = firstIncompleteIndex !== -1 && idx > firstIncompleteIndex;
+                                    const NodeIcon = nodeType === "quiz" ? ClipboardCheck : nodeType === "practice" ? Dumbbell : BookOpen;
                                     return (
                                         <div
                                             key={lesson._id}
-                                            className={`relative z-10 flex items-center w-full ${isOdd ? "justify-center translate-x-12" : "justify-center -translate-x-12"
-                                                }`}
+                                            className={`relative z-10 flex items-center w-full justify-center ${offsetClass}`}
                                         >
-                                            <button
-                                                onClick={() => handleComplete(lesson._id)}
-                                                disabled={lesson.isCompleted}
-                                                className={`group relative flex items-center justify-center w-14 h-14 rounded-md border transition-all duration-200 shadow-sm ${lesson.isCompleted
-                                                    ? `bg-emerald-600 border-emerald-600 text-white cursor-default`
-                                                    : `bg-white border-slate-200 text-slate-400 hover:border-emerald-500 hover:text-emerald-600`
-                                                    }`}
-                                            >
-                                                {lesson.isCompleted ? (
-                                                    <Check className="w-5 h-5" />
-                                                ) : (
-                                                    <Zap className="w-5 h-5" />
+                                            <div className="relative flex flex-col items-center gap-3">
+                                                {isCurrent && (
+                                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white text-emerald-600 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-200 shadow-sm">
+                                                        Start
+                                                    </div>
                                                 )}
+                                                <button
+                                                    onClick={() => handleComplete(lesson._id)}
+                                                    disabled={isCompleted || isLocked}
+                                                    className={`group relative flex items-center justify-center w-20 h-20 rounded-full border-[3px] transition-all duration-200 shadow-[0_8px_18px_rgba(16,185,129,0.18)] ${isCompleted
+                                                        ? `bg-emerald-500 border-emerald-500 text-white cursor-default`
+                                                        : isLocked
+                                                            ? `bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed`
+                                                            : `bg-white border-emerald-300 text-emerald-600 hover:border-emerald-500 hover:text-emerald-700`
+                                                        }`}
+                                                >
+                                                    {isCompleted ? (
+                                                        <Check className="w-7 h-7" />
+                                                    ) : (
+                                                        <NodeIcon className="w-7 h-7" />
+                                                    )}
 
-                                                {/* Tooltip */}
-                                                <div className="absolute left-full ml-3 opacity-0 group-hover:opacity-100 transition-all bg-slate-900 text-white text-[9px] px-2.5 py-1 rounded-md whitespace-nowrap pointer-events-none font-bold uppercase tracking-widest shadow-md">
-                                                    {lesson.title} (+{lesson.xpAward} XP)
+                                                    <div className={`absolute -bottom-3 w-12 h-3 rounded-full blur-sm opacity-60 ${isCompleted ? "bg-emerald-200" : "bg-slate-200"}`}></div>
+                                                </button>
+                                                <div className="text-center">
+                                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{lesson.title}</p>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <p className="text-[9px] text-emerald-600 font-bold">+{lesson.xpAward} XP</p>
+                                                        <span className={`text-[8px] font-black uppercase tracking-widest ${isLocked ? "text-slate-300" : "text-slate-400"}`}>
+                                                            {nodeType}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            </button>
+                                            </div>
                                         </div>
                                     );
                                 })}

@@ -5,10 +5,11 @@ import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
 import { SettingsPage } from "./components/SettingsPage";
 import { LogOut, Rocket, GraduationCap, Presentation } from "lucide-react";
+import { BookMascot } from "./components/BookMascot";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
       <Authenticated>
         <DashboardContent />
       </Authenticated>
@@ -77,9 +78,7 @@ function DashboardContent() {
 function LoadingScreen() {
   return (
     <div className="h-screen bg-slate-50 flex flex-col items-center justify-center space-y-6 animate-in fade-in duration-500">
-      <div className="w-16 h-16 bg-emerald-600 rounded-md flex items-center justify-center text-white shadow-sm">
-        <Rocket className="w-8 h-8" />
-      </div>
+      <BookMascot mood="happy" size={96} label="Pagey loading" />
       <div className="space-y-2 text-center">
         <h2 className="text-lg font-bold text-slate-900 tracking-tight">EduOS</h2>
         <div className="flex gap-1 justify-center">
@@ -102,7 +101,7 @@ function OnboardingFlow({ user }: { user: any }) {
   };
 
   return (
-    <div className="h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden">
       <div className="max-w-4xl w-full grid md:grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-500">
         <div
           className="bg-white p-10 rounded-md border border-slate-200 flex flex-col justify-center items-center text-center space-y-6 group hover:border-emerald-500 transition-all cursor-pointer relative"

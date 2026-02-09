@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { ClassView } from "./ClassView";
+import { BookMascot } from "./BookMascot";
 import { Link, Plus, School, Settings } from "lucide-react";
 
 interface ClassDashboardProps {
@@ -81,8 +82,11 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass,
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {classes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-500 col-span-full">
-            <div className="w-20 h-20 bg-emerald-50 rounded-md flex items-center justify-center text-emerald-300 border border-emerald-100">
-              <School className="w-10 h-10" />
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 bg-emerald-50 rounded-md flex items-center justify-center text-emerald-300 border border-emerald-100">
+                <School className="w-10 h-10" />
+              </div>
+              <BookMascot mood="sleepy" size={90} label="Pagey waiting" />
             </div>
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Your Workspace</h2>

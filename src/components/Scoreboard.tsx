@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { Trophy, Medal } from "lucide-react";
+import { BookMascot } from "./BookMascot";
 
 interface ScoreboardProps {
     classId?: Id<"classes">;
@@ -40,7 +41,7 @@ export function Scoreboard({ classId }: ScoreboardProps) {
 
     return (
         <div className="max-w-3xl mx-auto py-12 px-6 animate-in fade-in duration-700 text-left">
-            <div className="mb-12 text-center">
+            <div className="mb-12 text-center relative">
                 <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2 uppercase italic">Leaderboard</h2>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">The Elite Circle • XP Champions</p>
             </div>
@@ -67,7 +68,9 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                                     <div className="absolute -top-4 left-1/2 -translate-x-1/2 flex gap-1 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
                                         <RankIcon rank={idx} size={idx === 0 ? 6 : 5} />
                                     </div>
-                                    <div className="text-7xl font-black text-slate-200 font-serif mb-4">?</div>
+                                    <div className="mb-4">
+                                        <BookMascot mood="happy" size={84} label="Pagey waiting for challengers" />
+                                    </div>
                                     <h3 className="text-lg font-black text-slate-300 uppercase italic">?</h3>
                                     <div className="mt-3 inline-flex items-center gap-2 bg-white/50 px-4 py-1.5 rounded-full border border-slate-100 shadow-sm opacity-50">
                                         <span className="text-lg font-black text-slate-300">0</span>

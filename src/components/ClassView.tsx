@@ -29,7 +29,7 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
         <div className="animate-in fade-in duration-500 px-4 md:px-8 pt-6 flex flex-col items-center">
             {/* Centered Navigation & User Stats Bar */}
             <nav className="w-full max-w-6xl mx-auto mb-8">
-                <div className="flex items-center justify-between gap-4 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+                <div className="flex items-center justify-between gap-4 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl px-4 py-3 shadow-sm relative">
                     <button
                         onClick={onBack}
                         className="w-10 h-10 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center text-slate-400 shadow-sm group shrink-0"
@@ -39,21 +39,27 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                     </button>
 
                     {/* Centered Navigation Tabs */}
-                    <div className="relative p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:flex flex-1 max-w-2xl justify-center">
+                    <div
+                        className="absolute left-1/2 -translate-x-1/2 p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:grid w-full max-w-2xl grid-cols-6"
+                        style={{
+                            ["--tab-index" as any]: ["stream", "classwork", "people", "grades", "path", "leaderboard"].indexOf(activeTab),
+                        }}
+                    >
                         {/* Sliding Highlight */}
-                        <div
-                            className="absolute h-[calc(100%-8px)] rounded-lg bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
-                            style={{
-                                width: 'calc(16.666% - 2px)',
-                                transform: `translateX(${["stream", "classwork", "people", "grades", "path", "leaderboard"].indexOf(activeTab) * 100}%)`,
-                                left: '1px'
-                            }}
-                        />
+                        <div className="absolute inset-1 pointer-events-none">
+                            <div
+                                className="h-full rounded-lg bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
+                                style={{
+                                    width: "calc(100% / 6)",
+                                    transform: "translateX(calc(var(--tab-index) * 100%))",
+                                }}
+                            />
+                        </div>
                         {(["stream", "classwork", "people", "grades", "path", "leaderboard"] as const).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`relative z-10 flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
+                                className={`relative z-10 py-1.5 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
                                     }`}
                             >
                                 {tab === "stream" && <MessageSquare className="w-3 h-3" />}
