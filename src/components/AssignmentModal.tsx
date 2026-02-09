@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Doc } from "../../convex/_generated/dataModel";
 
 interface AssignmentModalProps {
@@ -9,11 +11,20 @@ interface AssignmentModalProps {
 export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
   const [timed, setTimed] = useState(false);
   const [duration, setDuration] = useState(60);
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(file.dueDate ? new Date(file.dueDate).toISOString().slice(0, 16) : "");
+  const [instructions, setInstructions] = useState(file.instructions || "");
+  const [selectedOutcomes, setSelectedOutcomes] = useState<string[]>((file.outcomeIds as any) || []);
+  const outcomes = useQuery(api.myFunctions.getOutcomes, { classId: file.classId }) || [];
+  const updateAssignmentDetails = useMutation(api.myFunctions.updateAssignmentDetails);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Implementation for creating actual assignment record would go here
+    await updateAssignmentDetails({
+      fileId: file._id,
+      dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
+      instructions: instructions || undefined,
+      outcomeIds: selectedOutcomes.length ? (selectedOutcomes as any) : undefined,
+    });
     onClose();
   };
 
@@ -62,6 +73,47 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
               onChange={(e) => setDueDate(e.target.value)}
               className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
             />
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+              Instructions
+            </label>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-medium text-slate-600 text-sm h-24 resize-none"
+              placeholder="Add assignment instructions"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+              Outcomes
+            </label>
+            {outcomes.length === 0 ? (
+              <div className="text-xs text-slate-400 font-medium">No outcomes yet. Add outcomes in Classwork.</div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {outcomes.map((o: any) => {
+                  const active = selectedOutcomes.includes(o._id);
+                  return (
+                    <button
+                      type="button"
+                      key={o._id}
+                      onClick={() => {
+                        setSelectedOutcomes((prev) =>
+                          prev.includes(o._id) ? prev.filter((id) => id !== o._id) : [...prev, o._id]
+                        );
+                      }}
+                      className={`px-3 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest ${active ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
+                    >
+                      {o.code}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 pt-2">

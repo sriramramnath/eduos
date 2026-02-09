@@ -95,6 +95,7 @@ export function FileGrid({ files, userRole }: FileGridProps) {
         <FileViewer
           file={selectedFile}
           onClose={() => setSelectedFile(null)}
+          userRole={userRole}
         />
       )}
 

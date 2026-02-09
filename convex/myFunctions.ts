@@ -20,6 +20,33 @@ async function getCurrentUserData(ctx: QueryCtx | MutationCtx) {
   return { authUser, user };
 }
 
+function normalizeText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function shingle(text: string, size = 3) {
+  const words = normalizeText(text).split(" ").filter(Boolean);
+  const shingles = new Set<string>();
+  for (let i = 0; i <= words.length - size; i += 1) {
+    shingles.add(words.slice(i, i + size).join(" "));
+  }
+  return shingles;
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>) {
+  if (!a.size || !b.size) return 0;
+  let intersection = 0;
+  for (const item of a) {
+    if (b.has(item)) intersection += 1;
+  }
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
 export const deleteAllUsers = mutation({
   args: {},
   handler: async (ctx) => {
@@ -296,6 +323,46 @@ export const getClassLinks = query({
   },
 });
 
+export const getOutcomes = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    return await ctx.db.query("outcomes").withIndex("class", (q) => q.eq("classId", classId)).collect();
+  },
+});
+
+export const createOutcome = mutation({
+  args: {
+    classId: v.id("classes"),
+    code: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, { classId, code, title, description }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can create outcomes");
+    return await ctx.db.insert("outcomes", { classId, code, title, description });
+  },
+});
+
+export const updateAssignmentDetails = mutation({
+  args: {
+    fileId: v.id("files"),
+    dueDate: v.optional(v.number()),
+    instructions: v.optional(v.string()),
+    outcomeIds: v.optional(v.array(v.id("outcomes"))),
+  },
+  handler: async (ctx, { fileId, dueDate, instructions, outcomeIds }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can edit assignments");
+    await ctx.db.patch(fileId, { dueDate, instructions, outcomeIds });
+    return await ctx.db.get(fileId);
+  },
+});
+
 export const uploadFile = mutation({
   args: {
     name: v.string(),
@@ -305,6 +372,9 @@ export const uploadFile = mutation({
     storageId: v.id("_storage"),
     classId: v.id("classes"),
     isAssignment: v.boolean(),
+    dueDate: v.optional(v.number()),
+    instructions: v.optional(v.string()),
+    outcomeIds: v.optional(v.array(v.id("outcomes"))),
   },
   handler: async (ctx, args) => {
     const data = await getCurrentUserData(ctx);
@@ -327,6 +397,9 @@ export const uploadFile = mutation({
       uploadedBy: data.user.email,
       editable,
       isAssignment: args.isAssignment,
+      dueDate: args.dueDate,
+      instructions: args.instructions,
+      outcomeIds: args.outcomeIds,
     });
   },
 });
@@ -350,6 +423,446 @@ export const createLink = mutation({
       createdBy: data.user.email,
       isWhiteboard,
     });
+  },
+});
+
+export const createReflection = mutation({
+  args: {
+    classId: v.id("classes"),
+    mood: v.string(),
+    goal: v.string(),
+    blocker: v.string(),
+  },
+  handler: async (ctx, { classId, mood, goal, blocker }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "student") throw new Error("Only students can submit reflections");
+    return await ctx.db.insert("reflections", {
+      classId,
+      studentId: data.user.email,
+      mood,
+      goal,
+      blocker,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const getStudentReflections = query({
+  args: { classId: v.id("classes"), studentId: v.string() },
+  handler: async (ctx, { classId, studentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role === "student" && data.user.email !== studentId) {
+      throw new Error("Access denied");
+    }
+    return await ctx.db
+      .query("reflections")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+  },
+});
+
+export const recordAttendance = mutation({
+  args: {
+    classId: v.id("classes"),
+    studentId: v.string(),
+    status: v.union(v.literal("present"), v.literal("absent"), v.literal("tardy")),
+    date: v.number(),
+  },
+  handler: async (ctx, { classId, studentId, status, date }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can record attendance");
+    return await ctx.db.insert("attendanceRecords", {
+      classId,
+      studentId,
+      status,
+      date,
+      recordedBy: data.user.email,
+    });
+  },
+});
+
+export const addInterventionNote = mutation({
+  args: {
+    classId: v.id("classes"),
+    studentId: v.string(),
+    note: v.string(),
+    level: v.union(v.literal("note"), v.literal("concern"), v.literal("action")),
+  },
+  handler: async (ctx, { classId, studentId, note, level }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can add notes");
+    return await ctx.db.insert("interventions", {
+      classId,
+      studentId,
+      note,
+      level,
+      createdAt: Date.now(),
+      createdBy: data.user.email,
+    });
+  },
+});
+
+export const createNudge = mutation({
+  args: {
+    classId: v.id("classes"),
+    studentId: v.string(),
+    assignmentId: v.id("files"),
+    message: v.string(),
+  },
+  handler: async (ctx, { classId, studentId, assignmentId, message }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can send nudges");
+    return await ctx.db.insert("nudges", {
+      classId,
+      studentId,
+      assignmentId,
+      message,
+      createdAt: Date.now(),
+      status: "sent",
+    });
+  },
+});
+
+export const getMissingAssignments = query({
+  args: { classId: v.id("classes"), studentId: v.string() },
+  handler: async (ctx, { classId, studentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role === "student" && data.user.email !== studentId) {
+      throw new Error("Access denied");
+    }
+    const now = Date.now();
+    const assignments = await ctx.db
+      .query("files")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("isAssignment"), true))
+      .collect();
+
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("student", (q) => q.eq("studentId", studentId))
+      .collect();
+    const submittedIds = new Set(submissions.map((s) => s.assignmentId));
+
+    return assignments
+      .filter((a) => a.dueDate && a.dueDate < now && !submittedIds.has(a._id))
+      .map((a) => ({
+        _id: a._id,
+        name: a.name,
+        dueDate: a.dueDate,
+        instructions: a.instructions,
+        outcomeIds: a.outcomeIds || [],
+      }));
+  },
+});
+
+export const getOutcomeProgress = query({
+  args: { classId: v.id("classes"), studentId: v.string() },
+  handler: async (ctx, { classId, studentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role === "student" && data.user.email !== studentId) {
+      throw new Error("Access denied");
+    }
+    const outcomes = await ctx.db.query("outcomes").withIndex("class", (q) => q.eq("classId", classId)).collect();
+    const assignments = await ctx.db
+      .query("files")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("isAssignment"), true))
+      .collect();
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("student", (q) => q.eq("studentId", studentId))
+      .collect();
+    const submittedIds = new Set(submissions.map((s) => s.assignmentId));
+
+    return outcomes.map((outcome) => {
+      const linkedAssignments = assignments.filter((a) => (a.outcomeIds || []).includes(outcome._id));
+      const completed = linkedAssignments.filter((a) => submittedIds.has(a._id));
+      return {
+        outcome,
+        total: linkedAssignments.length,
+        completed: completed.length,
+      };
+    });
+  },
+});
+
+export const submitAssignment = mutation({
+  args: {
+    assignmentId: v.id("files"),
+    classId: v.id("classes"),
+    content: v.optional(v.string()),
+  },
+  handler: async (ctx, { assignmentId, classId, content }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "student") throw new Error("Only students can submit assignments");
+    return await ctx.db.insert("submissions", {
+      assignmentId,
+      studentId: data.user.email,
+      classId,
+      content,
+      submittedAt: Date.now(),
+    });
+  },
+});
+
+export const getAssignmentSubmissions = query({
+  args: { assignmentId: v.id("files") },
+  handler: async (ctx, { assignmentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    const assignment = await ctx.db.get(assignmentId);
+    if (!assignment) return [];
+    if (data.user.role !== "teacher") throw new Error("Only teachers can view submissions");
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("assignment", (q) => q.eq("assignmentId", assignmentId))
+      .collect();
+    return submissions;
+  },
+});
+
+export const getStudentSubmissions = query({
+  args: { classId: v.id("classes"), studentId: v.string() },
+  handler: async (ctx, { classId, studentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role === "student" && data.user.email !== studentId) {
+      throw new Error("Access denied");
+    }
+    return await ctx.db
+      .query("submissions")
+      .withIndex("student", (q) => q.eq("studentId", studentId))
+      .filter((q) => q.eq(q.field("classId"), classId))
+      .collect();
+  },
+});
+
+export const getSimilarityReport = query({
+  args: { assignmentId: v.id("files"), studentId: v.string() },
+  handler: async (ctx, { assignmentId, studentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role !== "teacher") throw new Error("Only teachers can view similarity reports");
+    const submissions = await ctx.db
+      .query("submissions")
+      .withIndex("assignment", (q) => q.eq("assignmentId", assignmentId))
+      .collect();
+    const target = submissions.find((s) => s.studentId === studentId);
+    if (!target?.content) return [];
+    const targetShingles = shingle(target.content);
+    const reports = submissions
+      .filter((s) => s.studentId !== studentId && s.content)
+      .map((s) => {
+        const score = jaccardSimilarity(targetShingles, shingle(s.content || ""));
+        return { studentId: s.studentId, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+    return reports;
+  },
+});
+
+export const createForm = mutation({
+  args: {
+    classId: v.id("classes"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    category: v.union(v.literal("survey"), v.literal("permission"), v.literal("field_trip")),
+    questions: v.array(v.object({
+      id: v.string(),
+      label: v.string(),
+      type: v.union(v.literal("short"), v.literal("long"), v.literal("single"), v.literal("multi")),
+      options: v.optional(v.array(v.string())),
+      required: v.optional(v.boolean()),
+    })),
+  },
+  handler: async (ctx, { classId, title, description, category, questions }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can create forms");
+    return await ctx.db.insert("forms", {
+      classId,
+      title,
+      description,
+      category,
+      createdBy: data.user.email,
+      isOpen: true,
+      questions,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const setFormActive = mutation({
+  args: {
+    formId: v.id("forms"),
+    isOpen: v.boolean(),
+  },
+  handler: async (ctx, { formId, isOpen }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "teacher") throw new Error("Only teachers can update forms");
+    await ctx.db.patch(formId, { isOpen });
+    return await ctx.db.get(formId);
+  },
+});
+
+export const getForms = query({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    return await ctx.db.query("forms").withIndex("class", (q) => q.eq("classId", classId)).collect();
+  },
+});
+
+export const submitForm = mutation({
+  args: {
+    formId: v.id("forms"),
+    classId: v.id("classes"),
+    answers: v.array(v.object({
+      questionId: v.string(),
+      value: v.string(),
+    })),
+  },
+  handler: async (ctx, { formId, classId, answers }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "student") throw new Error("Only students can submit forms");
+    return await ctx.db.insert("formResponses", {
+      formId,
+      classId,
+      studentId: data.user.email,
+      answers,
+      submittedAt: Date.now(),
+    });
+  },
+});
+
+export const getFormResponses = query({
+  args: { formId: v.id("forms") },
+  handler: async (ctx, { formId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role !== "teacher") throw new Error("Only teachers can view responses");
+    return await ctx.db.query("formResponses").withIndex("form", (q) => q.eq("formId", formId)).collect();
+  },
+});
+
+export const getStudentTimeline = query({
+  args: { classId: v.id("classes"), studentId: v.string() },
+  handler: async (ctx, { classId, studentId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) return [];
+    if (data.user.role === "student" && data.user.email !== studentId) {
+      throw new Error("Access denied");
+    }
+
+    const attendance = await ctx.db
+      .query("attendanceRecords")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+    const reflections = await ctx.db
+      .query("reflections")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+    const interventions = await ctx.db
+      .query("interventions")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+    const nudges = await ctx.db
+      .query("nudges")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+    const grades = await ctx.db
+      .query("grades")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+    const quizSubs = await ctx.db
+      .query("quizSubmissions")
+      .withIndex("student", (q) => q.eq("studentId", studentId))
+      .collect();
+    const responses = await ctx.db
+      .query("formResponses")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentId))
+      .collect();
+    const progress = await ctx.db
+      .query("userProgress")
+      .withIndex("user", (q) => q.eq("userId", studentId))
+      .collect();
+    const lessonIds = new Set(progress.map((p) => p.lessonId));
+    const lessons = lessonIds.size
+      ? await ctx.db.query("lessons").collect()
+      : [];
+    const lessonMap = new Map(lessons.map((l) => [l._id, l.title]));
+
+    const events = [
+      ...attendance.map((a) => ({
+        type: "attendance",
+        ts: a.date,
+        title: `Attendance: ${a.status}`,
+        detail: `Recorded by ${a.recordedBy.split("@")[0]}`,
+      })),
+      ...reflections.map((r) => ({
+        type: "reflection",
+        ts: r.createdAt,
+        title: `Check-in: ${r.mood}`,
+        detail: `Goal: ${r.goal || "—"} • Blocker: ${r.blocker || "—"}`,
+      })),
+      ...interventions.map((i) => ({
+        type: "intervention",
+        ts: i.createdAt,
+        title: `Intervention (${i.level})`,
+        detail: i.note,
+      })),
+      ...nudges.map((n) => ({
+        type: "nudge",
+        ts: n.createdAt,
+        title: "Re-engagement nudge",
+        detail: n.message,
+      })),
+      ...grades.map((g) => ({
+        type: "grade",
+        ts: g.updatedAt,
+        title: "Grade update",
+        detail: `Score: ${g.score ?? "—"} ${g.letterGrade ? `(${g.letterGrade})` : ""}`,
+      })),
+      ...quizSubs.map((q) => ({
+        type: "quiz",
+        ts: q.completedAt,
+        title: "Quiz completed",
+        detail: `${q.score}/${q.totalQuestions}`,
+      })),
+      ...responses.map((r) => ({
+        type: "form",
+        ts: r.submittedAt,
+        title: "Form submitted",
+        detail: `${r.answers.length} responses`,
+      })),
+      ...progress.map((p) => ({
+        type: "lesson",
+        ts: p.completedAt,
+        title: "Lesson completed",
+        detail: lessonMap.get(p.lessonId) || "Lesson",
+      })),
+    ];
+
+    return events.sort((a, b) => b.ts - a.ts);
   },
 });
 

@@ -22,6 +22,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
     const [newDesc, setNewDesc] = useState("");
     const [newContent, setNewContent] = useState("");
     const mascotName = "Pagey";
+    const [selectedLesson, setSelectedLesson] = useState<any>(null);
 
     const handleAddUnit = async () => {
         if (!newTitle) return;
@@ -192,8 +193,8 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                                                     </div>
                                                 )}
                                                 <button
-                                                    onClick={() => handleComplete(lesson._id)}
-                                                    disabled={isCompleted || isLocked}
+                                                    onClick={() => setSelectedLesson({ ...lesson, isCompleted, isLocked, nodeType })}
+                                                    disabled={isLocked}
                                                     className={`group relative flex items-center justify-center w-20 h-20 rounded-full border-[3px] transition-all duration-200 shadow-[0_8px_18px_rgba(16,185,129,0.18)] ${isCompleted
                                                         ? `bg-emerald-500 border-emerald-500 text-white cursor-default`
                                                         : isLocked
@@ -226,6 +227,47 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                         </div>
                     );
                 })
+            )}
+            {selectedLesson && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                        <div className="bg-emerald-600 p-6 flex items-center justify-between text-white">
+                            <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest opacity-70">{selectedLesson.nodeType}</p>
+                                <h3 className="font-bold tracking-tight text-lg">{selectedLesson.title}</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        window.speechSynthesis.cancel();
+                                        setSelectedLesson(null);
+                                    }}
+                                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
+                                >
+                                    X
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedLesson.content}</div>
+                            <div className="flex items-center justify-between">
+                                <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">+{selectedLesson.xpAward} XP</div>
+                                {user.role === "student" && (
+                                    <button
+                                        disabled={selectedLesson.isCompleted}
+                                        onClick={async () => {
+                                            await handleComplete(selectedLesson._id);
+                                            setSelectedLesson(null);
+                                        }}
+                                        className="bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50"
+                                    >
+                                        {selectedLesson.isCompleted ? "Completed" : "Mark Complete"}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Doc } from "../../convex/_generated/dataModel";
 import { X, Download, Image as ImageIcon, File, Globe, Layout, Edit3, Presentation, ExternalLink } from "lucide-react";
@@ -8,15 +8,20 @@ import WebViewer from "@pdftron/webviewer";
 interface FileViewerProps {
   file: Doc<"files">;
   onClose: () => void;
+  userRole: string;
 }
 
-export function FileViewer({ file, onClose }: FileViewerProps) {
+export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
   const viewer = useRef<HTMLDivElement>(null);
   const fileUrl = useQuery(api.myFunctions.getFileUrl, { storageId: file.storageId });
+  const submissions = useQuery(api.myFunctions.getAssignmentSubmissions, file.isAssignment && userRole !== "student" ? { assignmentId: file._id } : "skip") || [];
+  const submitAssignment = useMutation(api.myFunctions.submitAssignment);
   const [isViewerLoading, setIsViewerLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importTarget, setImportTarget] = useState<"google" | "canva" | null>(null);
+  const [submissionText, setSubmissionText] = useState("");
+  const [showSubmission, setShowSubmission] = useState(false);
 
   const isOfficeDoc = (
     file.mimeType.includes("pdf") ||
@@ -279,6 +284,70 @@ export function FileViewer({ file, onClose }: FileViewerProps) {
             </div>
           )}
         </div>
+
+        {file.isAssignment && (
+          <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+            {userRole === "student" ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-rose-500">Assignment</p>
+                    <p className="text-sm font-bold text-slate-900">{file.name}</p>
+                  </div>
+                  {file.dueDate && (
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                      Due {new Date(file.dueDate).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                {file.instructions && (
+                  <p className="text-xs text-slate-600">{file.instructions}</p>
+                )}
+                <textarea
+                  value={submissionText}
+                  onChange={(e) => setSubmissionText(e.target.value)}
+                  className="w-full px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-medium text-slate-700 h-24 resize-none"
+                  placeholder="Paste your response or notes here..."
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={async () => {
+                      if (!submissionText.trim()) return;
+                      await submitAssignment({ assignmentId: file._id, classId: file.classId, content: submissionText });
+                      setSubmissionText("");
+                      setShowSubmission(true);
+                    }}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                  >
+                    Submit
+                  </button>
+                </div>
+                {showSubmission && (
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600">Submission received.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Submissions</p>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{submissions.length} total</span>
+                </div>
+                {submissions.length === 0 ? (
+                  <p className="text-xs text-slate-400 font-medium">No submissions yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-auto">
+                    {submissions.map((s: any) => (
+                      <div key={s._id} className="flex items-center justify-between text-xs text-slate-600 border border-slate-200 rounded-md bg-white px-3 py-2">
+                        <span>{s.studentId}</span>
+                        <span className="font-bold">{new Date(s.submittedAt).toLocaleDateString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Compact Footer */}
         <footer className="px-6 py-3 border-t border-slate-50 bg-white flex items-center justify-between">

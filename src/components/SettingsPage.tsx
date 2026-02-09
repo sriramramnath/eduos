@@ -8,7 +8,13 @@ interface SettingsPageProps {
   onThemeChange: (theme: "sun" | "moon") => void;
 }
 
-export function SettingsPage({ user, onBack, onSignOut, theme, onThemeChange }: SettingsPageProps) {
+export function SettingsPage({
+  user,
+  onBack,
+  onSignOut,
+  theme,
+  onThemeChange,
+}: SettingsPageProps) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mx-auto max-w-6xl">
       <div className="flex items-center justify-between">

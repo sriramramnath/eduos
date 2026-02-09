@@ -29,13 +29,35 @@ function DashboardContent() {
   const [activePage, setActivePage] = useState<"dashboard" | "settings">("dashboard");
   const [theme, setTheme] = useState<"sun" | "moon">("sun");
 
+  const getCookie = (name: string) => {
+    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+    return match ? decodeURIComponent(match[2]) : null;
+  };
+
+  const setCookie = (name: string, value: string, days = 365) => {
+    const expires = new Date(Date.now() + days * 864e5).toUTCString();
+    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+  };
+
+  useEffect(() => {
+    const saved = getCookie("eduos_theme");
+    if (saved === "sun" || saved === "moon") {
+      setTheme(saved);
+      return;
+    }
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setTheme(prefersDark ? "moon" : "sun");
+  }, []);
+
   useEffect(() => {
     if (theme === "sun") {
       document.documentElement.removeAttribute("data-theme");
     } else {
       document.documentElement.setAttribute("data-theme", theme);
     }
+    setCookie("eduos_theme", theme);
   }, [theme]);
+
 
   if (user === undefined) return <LoadingScreen />;
   if (!user) return <LandingPage />;

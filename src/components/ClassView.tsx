@@ -9,7 +9,7 @@ import { Gradebook } from "./Gradebook";
 import { LearningPath } from "./LearningPath";
 import { Scoreboard } from "./Scoreboard";
 import { FileViewer } from "./FileViewer";
-import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList } from "lucide-react";
+import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus } from "lucide-react";
 import { Composer } from "./Composer";
 
 interface ClassViewProps {
@@ -29,7 +29,7 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
         <div className="animate-in fade-in duration-500 px-4 md:px-8 pt-6 flex flex-col items-center">
             {/* Centered Navigation & User Stats Bar */}
             <nav className="w-full max-w-6xl mx-auto mb-8">
-                <div className="flex items-center justify-between gap-4 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl px-4 py-3 shadow-sm relative">
+                <div className="flex items-center justify-between gap-4 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl px-4 py-3 shadow-sm relative z-20">
                     <button
                         onClick={onBack}
                         className="w-10 h-10 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center text-slate-400 shadow-sm group shrink-0"
@@ -119,7 +119,7 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
             <main className="w-full max-w-6xl mx-auto text-left pb-24 md:pb-16">
                 {activeTab === "stream" && <StreamView classData={classData} user={user} onFileSelect={setSelectedFile} />}
                 {activeTab === "classwork" && <ClassworkView classId={classId} user={user} />}
-                {activeTab === "people" && <PeopleView classId={classId} />}
+                {activeTab === "people" && <PeopleView classId={classId} user={user} />}
                 {activeTab === "grades" && <Gradebook classId={classId} user={user} />}
                 {activeTab === "path" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><LearningPath classId={classId} user={user} /></div>}
                 {activeTab === "leaderboard" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><Scoreboard classId={classId} /></div>}
@@ -129,6 +129,7 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                 <FileViewer
                     file={selectedFile}
                     onClose={() => setSelectedFile(null)}
+                    userRole={user.role}
                 />
             )}
         </div >
@@ -142,6 +143,20 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     const generateUploadUrl = useMutation(api.myFunctions.generateUploadUrl);
     const [isUploadingBanner, setIsUploadingBanner] = useState(false);
     const [activeQuiz, setActiveQuiz] = useState<any>(null);
+    const createReflection = useMutation(api.myFunctions.createReflection);
+    const reflections = useQuery(api.myFunctions.getStudentReflections, { classId: classData._id, studentId: user.email }) || [];
+    const latestReflection = [...reflections].sort((a, b) => b.createdAt - a.createdAt)[0];
+    const forms = useQuery(api.myFunctions.getForms, { classId: classData._id }) || [];
+    const activeForms = forms.filter((form: any) => form.isOpen);
+    const submitForm = useMutation(api.myFunctions.submitForm);
+    const setFormActive = useMutation(api.myFunctions.setFormActive);
+    const [activeForm, setActiveForm] = useState<any | null>(null);
+    const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
+    const [mood, setMood] = useState("Focused");
+    const [goal, setGoal] = useState("");
+    const [blocker, setBlocker] = useState("");
+    const [submittingReflection, setSubmittingReflection] = useState(false);
+
 
     const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -167,7 +182,7 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Banner */}
-            <div className={`h-48 md:h-64 rounded-xl md:rounded-2xl p-6 md:p-10 flex flex-col justify-end text-white relative overflow-hidden shadow-2xl border border-slate-200/20 group ${!bannerUrl ? 'bg-slate-900' : ''}`}>
+            <div className={`h-48 md:h-60 lg:h-[18rem] w-screen relative left-1/2 right-1/2 -mx-[50vw] -mt-32 md:-mt-36 lg:-mt-40 p-6 md:p-10 flex flex-col justify-end text-white overflow-hidden shadow-2xl border-y border-slate-200/20 group z-0 ${!bannerUrl ? 'bg-slate-900' : ''}`}>
                 {bannerUrl && (
                     <img src={bannerUrl} alt="Class Banner" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60" />
                 )}
@@ -220,6 +235,108 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                 {/* Feed */}
                 <div className="md:col-span-4 space-y-6">
                     <Composer classId={classData._id} user={user} />
+
+                    {user.role === "student" && (
+                        <div className="premium-card p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Daily Check-In</p>
+                                    <p className="text-sm font-bold text-slate-900">How are you doing today?</p>
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {latestReflection ? `Last: ${new Date(latestReflection.createdAt).toLocaleDateString()}` : "New"}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <select
+                                    value={mood}
+                                    onChange={(e) => setMood(e.target.value)}
+                                    className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                >
+                                    <option>Focused</option>
+                                    <option>Motivated</option>
+                                    <option>Stuck</option>
+                                    <option>Overwhelmed</option>
+                                    <option>Curious</option>
+                                </select>
+                                <input
+                                    value={goal}
+                                    onChange={(e) => setGoal(e.target.value)}
+                                    placeholder="Today's goal"
+                                    className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                />
+                                <input
+                                    value={blocker}
+                                    onChange={(e) => setBlocker(e.target.value)}
+                                    placeholder="Any blockers?"
+                                    className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Private to your teacher</p>
+                                <button
+                                    disabled={submittingReflection}
+                                    onClick={async () => {
+                                        setSubmittingReflection(true);
+                                        await createReflection({ classId: classData._id, mood, goal, blocker });
+                                        setGoal("");
+                                        setBlocker("");
+                                        setSubmittingReflection(false);
+                                    }}
+                                    className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                >
+                                    {submittingReflection ? "Saving..." : "Submit Check-In"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeForms.length > 0 && (
+                        <div className="premium-card p-6 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Forms</p>
+                                    <p className="text-sm font-bold text-slate-900">Surveys and permissions</p>
+                                </div>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {activeForms.length} active
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {activeForms.map((form: any) => (
+                                    <div key={form._id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{form.category.replace("_", " ")}</p>
+                                        <p className="text-sm font-bold text-slate-900">{form.title}</p>
+                                        <p className="text-xs text-slate-500">{form.description || "No description"}</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{form.questions.length} questions</span>
+                                            <div className="flex items-center gap-2">
+                                                {user.role === "student" && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setActiveForm(form);
+                                                            setFormAnswers({});
+                                                        }}
+                                                        className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                                    >
+                                                        Fill
+                                                    </button>
+                                                )}
+                                                {user.role === "teacher" && (
+                                                    <button
+                                                        onClick={() => setFormActive({ formId: form._id, isOpen: false })}
+                                                        className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                                    >
+                                                        Deactivate
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {entries.length === 0 ? (
                         <div className="text-center py-20 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
@@ -366,6 +483,92 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                         setActiveQuiz(null);
                     }}
                 />
+            )}
+
+            {activeForm && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-md p-8 max-w-2xl w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <div className="text-center space-y-1">
+                            <h3 className="text-xl font-bold text-slate-900 tracking-tight">{activeForm.title}</h3>
+                            <p className="text-slate-500 font-medium text-xs">{activeForm.description || ""}</p>
+                        </div>
+                        <div className="space-y-4">
+                            {activeForm.questions.map((q: any) => (
+                                <div key={q.id} className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{q.label}</label>
+                                    {q.type === "short" && (
+                                        <input
+                                            value={formAnswers[q.id] || ""}
+                                            onChange={(e) => setFormAnswers({ ...formAnswers, [q.id]: e.target.value })}
+                                            className="w-full px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700"
+                                        />
+                                    )}
+                                    {q.type === "long" && (
+                                        <textarea
+                                            value={formAnswers[q.id] || ""}
+                                            onChange={(e) => setFormAnswers({ ...formAnswers, [q.id]: e.target.value })}
+                                            className="w-full px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 h-24 resize-none"
+                                        />
+                                    )}
+                                    {q.type === "single" && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {(q.options || []).map((opt: string) => (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setFormAnswers({ ...formAnswers, [q.id]: opt })}
+                                                    className={`px-3 py-1.5 rounded-md border text-[10px] font-bold uppercase tracking-widest ${formAnswers[q.id] === opt ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {q.type === "multi" && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {(q.options || []).map((opt: string) => {
+                                                const current = (formAnswers[q.id] || "").split("|").filter(Boolean);
+                                                const isSelected = current.includes(opt);
+                                                return (
+                                                    <button
+                                                        key={opt}
+                                                        onClick={() => {
+                                                            const next = isSelected ? current.filter((c) => c !== opt) : [...current, opt];
+                                                            setFormAnswers({ ...formAnswers, [q.id]: next.join("|") });
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-md border text-[10px] font-bold uppercase tracking-widest ${isSelected ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setActiveForm(null)}
+                                className="flex-1 py-2.5 font-bold text-slate-400 hover:text-slate-600 transition-colors text-[11px] uppercase tracking-widest"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await submitForm({
+                                        formId: activeForm._id,
+                                        classId: classData._id,
+                                        answers: Object.entries(formAnswers).map(([questionId, value]) => ({ questionId, value })),
+                                    });
+                                    setActiveForm(null);
+                                }}
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
+                            >
+                                Submit
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -602,6 +805,32 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
 function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any }) {
     const files = useQuery(api.myFunctions.getClassFiles, { classId }) || [];
     const links = useQuery(api.myFunctions.getClassLinks, { classId }) || [];
+    const outcomes = useQuery(api.myFunctions.getOutcomes, { classId }) || [];
+    const forms = useQuery(api.myFunctions.getForms, { classId }) || [];
+    const createOutcome = useMutation(api.myFunctions.createOutcome);
+    const createForm = useMutation(api.myFunctions.createForm);
+    const submitForm = useMutation(api.myFunctions.submitForm);
+
+    const [isOutcomeOpen, setIsOutcomeOpen] = useState(false);
+    const [outcomeCode, setOutcomeCode] = useState("");
+    const [outcomeTitle, setOutcomeTitle] = useState("");
+    const [outcomeDesc, setOutcomeDesc] = useState("");
+
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [formTitle, setFormTitle] = useState("");
+    const [formDesc, setFormDesc] = useState("");
+    const [formCategory, setFormCategory] = useState<"survey" | "permission" | "field_trip">("survey");
+    const [formQuestions, setFormQuestions] = useState<any[]>([]);
+    const [activeForm, setActiveForm] = useState<any | null>(null);
+    const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
+    const [responsesFormId, setResponsesFormId] = useState<Id<"forms"> | null>(null);
+    const responses = useQuery(api.myFunctions.getFormResponses, responsesFormId ? { formId: responsesFormId } : "skip") || [];
+    const newQuestionId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+    const responsesForm = forms.find((f: any) => f._id === responsesFormId);
+    const getQuestionLabel = (questionId: string) => {
+        const found = responsesForm?.questions?.find((q: any) => q.id === questionId);
+        return found?.label || questionId;
+    };
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -631,6 +860,95 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                 </div>
             )}
 
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900 tracking-tight">Outcomes</h3>
+                        <p className="text-sm text-slate-500 font-medium">Standards mapped to assignments.</p>
+                    </div>
+                    {user.role === "teacher" && (
+                        <button
+                            onClick={() => setIsOutcomeOpen(true)}
+                            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest shadow-sm hover:bg-emerald-600 transition-all"
+                        >
+                            <Plus className="w-4 h-4" /> Add Outcome
+                        </button>
+                    )}
+                </div>
+                {outcomes.length === 0 ? (
+                    <div className="text-center py-10 rounded-md bg-slate-50 border border-dashed border-slate-200 text-slate-400 text-sm font-medium">
+                        No outcomes defined yet.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {outcomes.map((o: any) => (
+                            <div key={o._id} className="premium-card p-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{o.code}</p>
+                                <p className="text-sm font-bold text-slate-900">{o.title}</p>
+                                {o.description && <p className="text-xs text-slate-500 mt-1">{o.description}</p>}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900 tracking-tight">Forms</h3>
+                        <p className="text-sm text-slate-500 font-medium">Surveys, permissions, and field trip slips.</p>
+                    </div>
+                    {user.role === "teacher" && (
+                        <button
+                            onClick={() => {
+                                setFormQuestions([{ id: newQuestionId(), label: "Question", type: "short" }]);
+                                setIsFormOpen(true);
+                            }}
+                            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all"
+                        >
+                            <Plus className="w-4 h-4" /> New Form
+                        </button>
+                    )}
+                </div>
+
+                {forms.length === 0 ? (
+                    <div className="text-center py-10 rounded-md bg-slate-50 border border-dashed border-slate-200 text-slate-400 text-sm font-medium">
+                        No forms created yet.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {forms.map((form: any) => (
+                            <div key={form._id} className="premium-card p-4 space-y-2">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{form.category.replace("_", " ")}</p>
+                                <p className="text-sm font-bold text-slate-900">{form.title}</p>
+                                <p className="text-xs text-slate-500">{form.description || "No description"}</p>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{form.questions.length} questions</span>
+                                    {user.role === "student" ? (
+                                        <button
+                                            onClick={() => {
+                                                setActiveForm(form);
+                                                setFormAnswers({});
+                                            }}
+                                            className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                        >
+                                            Fill
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => setResponsesFormId(form._id)}
+                                            className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                        >
+                                            Responses
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {files.length === 0 && links.length === 0 && (
                 <div className="text-center py-16 rounded-md bg-slate-50 border border-dashed border-slate-200">
                     <div className="flex justify-center mb-4 text-emerald-200">
@@ -642,66 +960,574 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                     )}
                 </div>
             )}
+
+            {isOutcomeOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-md p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight text-center">New Outcome</h3>
+                        <input
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
+                            placeholder="Code (e.g., ELA.1)"
+                            value={outcomeCode}
+                            onChange={(e) => setOutcomeCode(e.target.value)}
+                        />
+                        <input
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
+                            placeholder="Title"
+                            value={outcomeTitle}
+                            onChange={(e) => setOutcomeTitle(e.target.value)}
+                        />
+                        <textarea
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-medium text-slate-600 text-sm h-24 resize-none"
+                            placeholder="Description (optional)"
+                            value={outcomeDesc}
+                            onChange={(e) => setOutcomeDesc(e.target.value)}
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setIsOutcomeOpen(false)}
+                                className="flex-1 py-2.5 font-bold text-slate-400 hover:text-slate-600 transition-colors text-[11px] uppercase tracking-widest"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!outcomeCode || !outcomeTitle) return;
+                                    await createOutcome({ classId, code: outcomeCode, title: outcomeTitle, description: outcomeDesc });
+                                    setOutcomeCode("");
+                                    setOutcomeTitle("");
+                                    setOutcomeDesc("");
+                                    setIsOutcomeOpen(false);
+                                }}
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {isFormOpen && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-md p-8 max-w-2xl w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <h3 className="text-xl font-bold text-slate-900 tracking-tight text-center">New Form</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input
+                                className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
+                                placeholder="Form title"
+                                value={formTitle}
+                                onChange={(e) => setFormTitle(e.target.value)}
+                            />
+                            <select
+                                value={formCategory}
+                                onChange={(e) => setFormCategory(e.target.value as any)}
+                                className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
+                            >
+                                <option value="survey">Survey</option>
+                                <option value="permission">Permission Slip</option>
+                                <option value="field_trip">Field Trip</option>
+                            </select>
+                        </div>
+                        <textarea
+                            className="w-full px-4 py-3 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-medium text-slate-600 text-sm h-20 resize-none"
+                            placeholder="Description (optional)"
+                            value={formDesc}
+                            onChange={(e) => setFormDesc(e.target.value)}
+                        />
+                        <div className="space-y-3">
+                            {formQuestions.map((q, idx) => (
+                                <div key={q.id} className="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                                    <input
+                                        value={q.label}
+                                        onChange={(e) => {
+                                            const next = [...formQuestions];
+                                            next[idx] = { ...next[idx], label: e.target.value };
+                                            setFormQuestions(next);
+                                        }}
+                                        className="md:col-span-3 px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700"
+                                        placeholder="Question label"
+                                    />
+                                    <select
+                                        value={q.type}
+                                        onChange={(e) => {
+                                            const next = [...formQuestions];
+                                            next[idx] = { ...next[idx], type: e.target.value };
+                                            setFormQuestions(next);
+                                        }}
+                                        className="md:col-span-2 px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700"
+                                    >
+                                        <option value="short">Short Text</option>
+                                        <option value="long">Long Text</option>
+                                        <option value="single">Single Choice</option>
+                                        <option value="multi">Multi Choice</option>
+                                    </select>
+                                    <button
+                                        onClick={() => setFormQuestions(formQuestions.filter((_, i) => i !== idx))}
+                                        className="md:col-span-1 px-3 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:bg-slate-50"
+                                    >
+                                        Remove
+                                    </button>
+                                    {["single", "multi"].includes(q.type) && (
+                                        <input
+                                            value={q.options || ""}
+                                            onChange={(e) => {
+                                                const next = [...formQuestions];
+                                                next[idx] = { ...next[idx], options: e.target.value };
+                                                setFormQuestions(next);
+                                            }}
+                                            className="md:col-span-6 px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700"
+                                            placeholder="Options (comma separated)"
+                                        />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <button
+                                onClick={() => setFormQuestions([...formQuestions, { id: newQuestionId(), label: "Question", type: "short" }])}
+                                className="px-3 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                            >
+                                Add Question
+                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsFormOpen(false)}
+                                    className="px-4 py-2 font-bold text-slate-400 hover:text-slate-600 transition-colors text-[11px] uppercase tracking-widest"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (!formTitle || formQuestions.length === 0) return;
+                                        const payload = formQuestions.map((q) => ({
+                                            id: q.id,
+                                            label: q.label,
+                                            type: q.type,
+                                            options: q.options ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
+                                        }));
+                                        await createForm({ classId, title: formTitle, description: formDesc, category: formCategory, questions: payload });
+                                        setFormTitle("");
+                                        setFormDesc("");
+                                        setFormQuestions([]);
+                                        setIsFormOpen(false);
+                                    }}
+                                    className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                >
+                                    Publish
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeForm && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-md p-8 max-w-2xl w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <div className="text-center space-y-1">
+                            <h3 className="text-xl font-bold text-slate-900 tracking-tight">{activeForm.title}</h3>
+                            <p className="text-slate-500 font-medium text-xs">{activeForm.description || ""}</p>
+                        </div>
+                        <div className="space-y-4">
+                            {activeForm.questions.map((q: any) => (
+                                <div key={q.id} className="space-y-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{q.label}</label>
+                                    {q.type === "short" && (
+                                        <input
+                                            value={formAnswers[q.id] || ""}
+                                            onChange={(e) => setFormAnswers({ ...formAnswers, [q.id]: e.target.value })}
+                                            className="w-full px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700"
+                                        />
+                                    )}
+                                    {q.type === "long" && (
+                                        <textarea
+                                            value={formAnswers[q.id] || ""}
+                                            onChange={(e) => setFormAnswers({ ...formAnswers, [q.id]: e.target.value })}
+                                            className="w-full px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700 h-24 resize-none"
+                                        />
+                                    )}
+                                    {q.type === "single" && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {(q.options || []).map((opt: string) => (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setFormAnswers({ ...formAnswers, [q.id]: opt })}
+                                                    className={`px-3 py-1.5 rounded-md border text-[10px] font-bold uppercase tracking-widest ${formAnswers[q.id] === opt ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {q.type === "multi" && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {(q.options || []).map((opt: string) => {
+                                                const current = (formAnswers[q.id] || "").split("|").filter(Boolean);
+                                                const isSelected = current.includes(opt);
+                                                return (
+                                                    <button
+                                                        key={opt}
+                                                        onClick={() => {
+                                                            const next = isSelected ? current.filter((c) => c !== opt) : [...current, opt];
+                                                            setFormAnswers({ ...formAnswers, [q.id]: next.join("|") });
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-md border text-[10px] font-bold uppercase tracking-widest ${isSelected ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
+                                                    >
+                                                        {opt}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setActiveForm(null)}
+                                className="flex-1 py-2.5 font-bold text-slate-400 hover:text-slate-600 transition-colors text-[11px] uppercase tracking-widest"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await submitForm({
+                                        formId: activeForm._id,
+                                        classId,
+                                        answers: Object.entries(formAnswers).map(([questionId, value]) => ({ questionId, value })),
+                                    });
+                                    setActiveForm(null);
+                                }}
+                                className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
+                            >
+                                Submit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {responsesFormId && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-md p-8 max-w-xl w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-slate-900 tracking-tight">Form Responses</h3>
+                            <button
+                                onClick={() => setResponsesFormId(null)}
+                                className="w-8 h-8 rounded-md border border-slate-200 text-slate-400 hover:text-slate-600"
+                            >
+                                X
+                            </button>
+                        </div>
+                        <div className="space-y-3 max-h-[50vh] overflow-auto">
+                            {responses.length === 0 && (
+                                <p className="text-xs text-slate-400 font-medium">No responses yet.</p>
+                            )}
+                            {responses.map((r: any) => (
+                                <div key={r._id} className="p-3 rounded-md border border-slate-200 bg-slate-50">
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">{r.studentId}</p>
+                                    <div className="space-y-2">
+                                        {r.answers.map((a: any) => (
+                                            <div key={a.questionId} className="text-xs text-slate-600">
+                                                <span className="font-bold">{getQuestionLabel(a.questionId)}</span>: {a.value}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-function PeopleView({ classId }: { classId: Id<"classes"> }) {
+function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
     const members = useQuery(api.myFunctions.getClassMembers, { classId }) || [];
     const teacher = useQuery(api.myFunctions.getClassTeacher, { classId });
+    const assignments = useQuery(api.myFunctions.getClassFiles, { classId }) || [];
+    const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+    const [note, setNote] = useState("");
+    const [noteLevel, setNoteLevel] = useState<"note" | "concern" | "action">("note");
+    const [activeSimilarity, setActiveSimilarity] = useState<{ assignmentId: Id<"files">; studentId: string } | null>(null);
+
+    const timeline = useQuery(
+        api.myFunctions.getStudentTimeline,
+        selectedStudent ? { classId, studentId: selectedStudent.email } : "skip"
+    ) || [];
+    const missingAssignments = useQuery(
+        api.myFunctions.getMissingAssignments,
+        selectedStudent ? { classId, studentId: selectedStudent.email } : "skip"
+    ) || [];
+    const outcomeProgress = useQuery(
+        api.myFunctions.getOutcomeProgress,
+        selectedStudent ? { classId, studentId: selectedStudent.email } : "skip"
+    ) || [];
+    const submissions = useQuery(
+        api.myFunctions.getStudentSubmissions,
+        selectedStudent ? { classId, studentId: selectedStudent.email } : "skip"
+    ) || [];
+    const similarityReport = useQuery(
+        api.myFunctions.getSimilarityReport,
+        activeSimilarity ? { assignmentId: activeSimilarity.assignmentId, studentId: activeSimilarity.studentId } : "skip"
+    ) || [];
+
+    const recordAttendance = useMutation(api.myFunctions.recordAttendance);
+    const addInterventionNote = useMutation(api.myFunctions.addInterventionNote);
+    const createNudge = useMutation(api.myFunctions.createNudge);
+
+
+    const getAssignmentName = (assignmentId: string) => {
+        const found = assignments.find((a) => a._id === assignmentId);
+        return found?.name || "Assignment";
+    };
 
     return (
-        <div className="max-w-3xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 text-left pb-20">
-            <div>
-                <div className="flex items-center justify-between border-b border-slate-900 pb-4 mb-6 text-left">
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Teachers</h2>
-                </div>
-                {teacher ? (
-                    <div className="flex items-center gap-4 p-4 premium-card border-slate-200">
-                        <img
-                            src={teacher.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=10b981&color=ffffff&bold=true`}
-                            className="w-12 h-12 rounded-md border border-slate-200 shadow-sm"
-                            alt={teacher.name}
-                        />
-                        <div>
-                            <p className="text-base font-bold text-slate-900">{teacher.name}</p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Class Administrator</p>
+        <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 text-left pb-20">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-8">
+                    <div>
+                        <div className="flex items-center justify-between border-b border-slate-900 pb-4 mb-6 text-left">
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Teachers</h2>
                         </div>
-                    </div>
-                ) : (
-                    <div className="p-4 premium-card border-slate-100 flex items-center justify-center">
-                        <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
-                    </div>
-                )}
-            </div>
-
-            <div>
-                <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Students</h2>
-                    <span className="px-3 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500 uppercase tracking-widest">{members.length} Active</span>
-                </div>
-
-                <div className="space-y-2">
-                    {members.map((member: any) => (
-                        <div key={member.email} className="premium-card p-4 flex items-center gap-4 group hover:border-emerald-500/30 transition-all cursor-pointer">
-                            <img
-                                src={member.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=10b981&color=ffffff&bold=true`}
-                                className="w-10 h-10 rounded-md border border-slate-200 shadow-sm"
-                                alt={member.name}
-                            />
-                            <div className="flex-1">
-                                <p className="text-sm font-bold text-slate-800">{member.name}</p>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{member.email}</p>
+                        {teacher ? (
+                            <div className="flex items-center gap-4 p-4 premium-card border-slate-200">
+                                <img
+                                    src={teacher.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.name)}&background=10b981&color=ffffff&bold=true`}
+                                    className="w-12 h-12 rounded-md border border-slate-200 shadow-sm"
+                                    alt={teacher.name}
+                                />
+                                <div>
+                                    <p className="text-base font-bold text-slate-900">{teacher.name}</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Class Administrator</p>
+                                </div>
                             </div>
-                            <button className="w-9 h-9 rounded-md bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center">
-                                <Mail className="w-4 h-4" />
-                            </button>
+                        ) : (
+                            <div className="p-4 premium-card border-slate-100 flex items-center justify-center">
+                                <Loader2 className="w-5 h-5 text-emerald-500 animate-spin" />
+                            </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
+                            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Students</h2>
+                            <span className="px-3 py-1 bg-slate-100 rounded-md text-[10px] font-bold text-slate-500 uppercase tracking-widest">{members.length} Active</span>
                         </div>
-                    ))}
-                    {members.length === 0 && (
-                        <div className="text-center py-16 rounded-md bg-slate-50/50 border border-dashed border-slate-200">
-                            <p className="text-slate-400 font-bold text-xs italic">No students joined yet.</p>
+
+                        <div className="space-y-2">
+                            {members.map((member: any) => (
+                                <div
+                                    key={member.email}
+                                    onClick={() => setSelectedStudent(member)}
+                                    className={`premium-card p-4 flex items-center gap-4 group hover:border-emerald-500/30 transition-all cursor-pointer ${selectedStudent?.email === member.email ? "border-emerald-400" : ""}`}
+                                >
+                                    <img
+                                        src={member.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name)}&background=10b981&color=ffffff&bold=true`}
+                                        className="w-10 h-10 rounded-md border border-slate-200 shadow-sm"
+                                        alt={member.name}
+                                    />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold text-slate-800">{member.name}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{member.email}</p>
+                                    </div>
+                                    <button className="w-9 h-9 rounded-md bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center">
+                                        <Mail className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                            {members.length === 0 && (
+                                <div className="text-center py-16 rounded-md bg-slate-50/50 border border-dashed border-slate-200">
+                                    <p className="text-slate-400 font-bold text-xs italic">No students joined yet.</p>
+                                </div>
+                            )}
                         </div>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-2 space-y-6">
+                    {!selectedStudent ? (
+                        <div className="premium-card p-10 text-center text-slate-400 font-bold">Select a student to view the unified profile timeline.</div>
+                    ) : (
+                        <>
+                            <div className="premium-card p-6 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <img
+                                        src={selectedStudent.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedStudent.name)}&background=10b981&color=ffffff&bold=true`}
+                                        className="w-14 h-14 rounded-md border border-slate-200 shadow-sm"
+                                        alt={selectedStudent.name}
+                                    />
+                                    <div>
+                                        <p className="text-lg font-bold text-slate-900">{selectedStudent.name}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{selectedStudent.email}</p>
+                                    </div>
+                                </div>
+                                {user.role === "teacher" && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => recordAttendance({ classId, studentId: selectedStudent.email, status: "present", date: Date.now() })}
+                                            className="px-3 py-1.5 rounded-md border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-widest hover:bg-emerald-50"
+                                        >
+                                            Present
+                                        </button>
+                                        <button
+                                            onClick={() => recordAttendance({ classId, studentId: selectedStudent.email, status: "tardy", date: Date.now() })}
+                                            className="px-3 py-1.5 rounded-md border border-amber-200 text-amber-700 text-[9px] font-bold uppercase tracking-widest hover:bg-amber-50"
+                                        >
+                                            Tardy
+                                        </button>
+                                        <button
+                                            onClick={() => recordAttendance({ classId, studentId: selectedStudent.email, status: "absent", date: Date.now() })}
+                                            className="px-3 py-1.5 rounded-md border border-rose-200 text-rose-700 text-[9px] font-bold uppercase tracking-widest hover:bg-rose-50"
+                                        >
+                                            Absent
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="premium-card p-5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Outcome Badges</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {outcomeProgress.filter((o: any) => o.completed > 0).length === 0 && (
+                                            <p className="text-xs text-slate-400 font-medium">No badges yet. Complete tagged assignments to earn them.</p>
+                                        )}
+                                        {outcomeProgress.filter((o: any) => o.completed > 0).map((o: any) => {
+                                            const tier = o.completed >= 5 ? "Gold" : o.completed >= 3 ? "Silver" : "Bronze";
+                                            return (
+                                                <div key={o.outcome._id} className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-bold uppercase tracking-widest border border-emerald-100">
+                                                    {o.outcome.code} {tier}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="premium-card p-5">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Missing Work</p>
+                                    <div className="mt-3 space-y-2">
+                                        {missingAssignments.length === 0 && (
+                                            <p className="text-xs text-slate-400 font-medium">No missing assignments.</p>
+                                        )}
+                                        {missingAssignments.map((a: any) => (
+                                            <div key={a._id} className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+                                                <span>{a.name}</span>
+                                                {user.role === "teacher" && (
+                                                    <button
+                                                        onClick={() => createNudge({
+                                                            classId,
+                                                            studentId: selectedStudent.email,
+                                                            assignmentId: a._id,
+                                                            message: `Reminder: ${a.name} was due ${new Date(a.dueDate).toLocaleDateString()}.`,
+                                                        })}
+                                                        className="px-2 py-1 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                                    >
+                                                        Nudge
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {user.role === "teacher" && (
+                                <div className="premium-card p-6 space-y-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intervention Notes</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                        <select
+                                            value={noteLevel}
+                                            onChange={(e) => setNoteLevel(e.target.value as any)}
+                                            className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        >
+                                            <option value="note">Note</option>
+                                            <option value="concern">Concern</option>
+                                            <option value="action">Action</option>
+                                        </select>
+                                        <input
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
+                                            placeholder="Add an intervention note..."
+                                            className="md:col-span-3 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        />
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={async () => {
+                                                if (!note.trim()) return;
+                                                await addInterventionNote({ classId, studentId: selectedStudent.email, note, level: noteLevel });
+                                                setNote("");
+                                            }}
+                                            className="bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all"
+                                        >
+                                            Add Note
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="premium-card p-6 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-sm font-bold text-slate-900 tracking-tight">Unified Timeline</h3>
+                                </div>
+                                <div className="space-y-3">
+                                    {timeline.length === 0 && (
+                                        <p className="text-xs text-slate-400 font-medium">No timeline activity yet.</p>
+                                    )}
+                                    {timeline.map((event: any, idx: number) => (
+                                        <div key={`${event.type}-${idx}`} className="flex items-start gap-3">
+                                            <div className="w-2.5 h-2.5 mt-2 rounded-full bg-emerald-500"></div>
+                                            <div>
+                                                <p className="text-sm font-bold text-slate-800">{event.title}</p>
+                                                <p className="text-xs text-slate-500">{event.detail}</p>
+                                                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-1">
+                                                    {new Date(event.ts).toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="premium-card p-6 space-y-4">
+                                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Assignment Submissions</h3>
+                                {submissions.length === 0 && (
+                                    <p className="text-xs text-slate-400 font-medium">No submissions yet.</p>
+                                )}
+                                {submissions.map((s: any) => (
+                                    <div key={s._id} className="flex items-center justify-between text-sm">
+                                        <div>
+                                            <p className="font-bold text-slate-800">{getAssignmentName(s.assignmentId)}</p>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(s.submittedAt).toLocaleDateString()}</p>
+                                        </div>
+                                        {user.role === "teacher" && (
+                                            <button
+                                                onClick={() => setActiveSimilarity({ assignmentId: s.assignmentId, studentId: selectedStudent.email })}
+                                                className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                            >
+                                                Similarity
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                {user.role === "teacher" && activeSimilarity && (
+                                    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-2">Similarity Report</p>
+                                        {similarityReport.length === 0 && (
+                                            <p className="text-xs text-slate-400 font-medium">No comparable submissions yet.</p>
+                                        )}
+                                        {similarityReport.map((r: any) => (
+                                            <div key={r.studentId} className="flex items-center justify-between text-xs text-slate-600">
+                                                <span>{r.studentId.split("@")[0]}</span>
+                                                <span className="font-bold">{Math.round(r.score * 100)}%</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

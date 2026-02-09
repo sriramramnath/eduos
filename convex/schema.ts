@@ -38,6 +38,9 @@ export default defineSchema({
     storageId: v.id("_storage"),
     editable: v.boolean(),
     isAssignment: v.boolean(),
+    dueDate: v.optional(v.number()),
+    instructions: v.optional(v.string()),
+    outcomeIds: v.optional(v.array(v.id("outcomes"))),
   }).index("class", ["classId"]),
 
   submissions: defineTable({
@@ -127,4 +130,74 @@ export default defineSchema({
     totalQuestions: v.number(),
     completedAt: v.number(),
   }).index("quiz", ["quizId"]).index("student", ["studentId"]),
+
+  outcomes: defineTable({
+    classId: v.id("classes"),
+    code: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+  }).index("class", ["classId"]),
+
+  reflections: defineTable({
+    classId: v.id("classes"),
+    studentId: v.string(),
+    mood: v.string(),
+    goal: v.string(),
+    blocker: v.string(),
+    createdAt: v.number(),
+  }).index("class", ["classId"]).index("student", ["studentId"]),
+
+  attendanceRecords: defineTable({
+    classId: v.id("classes"),
+    studentId: v.string(),
+    status: v.union(v.literal("present"), v.literal("absent"), v.literal("tardy")),
+    date: v.number(),
+    recordedBy: v.string(),
+  }).index("class", ["classId"]).index("student", ["studentId"]),
+
+  interventions: defineTable({
+    classId: v.id("classes"),
+    studentId: v.string(),
+    note: v.string(),
+    level: v.union(v.literal("note"), v.literal("concern"), v.literal("action")),
+    createdAt: v.number(),
+    createdBy: v.string(),
+  }).index("class", ["classId"]).index("student", ["studentId"]),
+
+  nudges: defineTable({
+    classId: v.id("classes"),
+    studentId: v.string(),
+    assignmentId: v.id("files"),
+    message: v.string(),
+    createdAt: v.number(),
+    status: v.union(v.literal("sent"), v.literal("acknowledged")),
+  }).index("class", ["classId"]).index("student", ["studentId"]),
+
+  forms: defineTable({
+    classId: v.id("classes"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    category: v.union(v.literal("survey"), v.literal("permission"), v.literal("field_trip")),
+    createdBy: v.string(),
+    isOpen: v.boolean(),
+    questions: v.array(v.object({
+      id: v.string(),
+      label: v.string(),
+      type: v.union(v.literal("short"), v.literal("long"), v.literal("single"), v.literal("multi")),
+      options: v.optional(v.array(v.string())),
+      required: v.optional(v.boolean()),
+    })),
+    createdAt: v.number(),
+  }).index("class", ["classId"]),
+
+  formResponses: defineTable({
+    formId: v.id("forms"),
+    classId: v.id("classes"),
+    studentId: v.string(),
+    answers: v.array(v.object({
+      questionId: v.string(),
+      value: v.string(),
+    })),
+    submittedAt: v.number(),
+  }).index("form", ["formId"]).index("student", ["studentId"]).index("class", ["classId"]),
 });
