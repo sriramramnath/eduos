@@ -1017,15 +1017,11 @@ export const getLearningPath = query({
     if (!data || !data.user) return [];
     const user = data.user;
 
-    const units = await ctx.db
-      .query("units")
-      .withIndex("class", (q) => q.eq("classId", classId))
-      .collect();
-
-    // sorting by order manually since we used class index
-    units.sort((a, b) => a.order - b.order);
-
-    const lessons = await ctx.db.query("lessons").withIndex("order").collect();
+    const allLessons = await ctx.db.query("lessons").collect();
+    const lessons = allLessons.filter((lesson) =>
+      !("classId" in lesson) || lesson.classId === classId
+    );
+    lessons.sort((a, b) => a.order - b.order);
     const progress = await ctx.db
       .query("userProgress")
       .withIndex("user", (q) => q.eq("userId", user.email))
@@ -1033,14 +1029,9 @@ export const getLearningPath = query({
 
     const progressMap = new Set(progress.map((p) => p.lessonId));
 
-    return units.map((unit) => ({
-      ...unit,
-      lessons: lessons
-        .filter((lesson) => lesson.unitId === unit._id)
-        .map((lesson) => ({
-          ...lesson,
-          isCompleted: progressMap.has(lesson._id),
-        })),
+    return lessons.map((lesson) => ({
+      ...lesson,
+      isCompleted: progressMap.has(lesson._id),
     }));
   },
 });
@@ -1122,30 +1113,25 @@ export const getLeaderboard = query({
   },
 });
 
-export const adminCreateUnit = mutation({
+export const adminCreateLesson = mutation({
   args: {
     classId: v.id("classes"),
     title: v.string(),
-    description: v.string(),
-    order: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await ctx.db.insert("units", {
-      classId: args.classId,
-      title: args.title,
-      description: args.description,
-      order: args.order,
-    });
-  },
-});
-
-export const adminCreateLesson = mutation({
-  args: {
-    unitId: v.id("units"),
-    title: v.string(),
     content: v.string(),
+    pretext: v.optional(v.string()),
+    dataContext: v.optional(v.string()),
     order: v.number(),
     xpAward: v.number(),
+    questions: v.optional(v.array(v.object({
+      prompt: v.string(),
+      options: v.array(v.string()),
+      correctIndex: v.number(),
+      explanation: v.optional(v.string()),
+    }))),
+    flashcards: v.optional(v.array(v.object({
+      front: v.string(),
+      back: v.string(),
+    }))),
   },
   handler: async (ctx, args) => {
     const data = await getCurrentUserData(ctx);
@@ -1153,6 +1139,34 @@ export const adminCreateLesson = mutation({
       throw new Error("Only teachers can create lessons");
     }
     return await ctx.db.insert("lessons", args);
+  },
+});
+
+export const adminClearLearningPath = mutation({
+  args: { classId: v.id("classes") },
+  handler: async (ctx, { classId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user || data.user.role !== "teacher") {
+      throw new Error("Only teachers can clear learning paths");
+    }
+
+    const lessons = await ctx.db
+      .query("lessons")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+
+    for (const lesson of lessons) {
+      const progress = await ctx.db
+        .query("userProgress")
+        .withIndex("lesson", (q) => q.eq("lessonId", lesson._id))
+        .collect();
+      for (const entry of progress) {
+        await ctx.db.delete(entry._id);
+      }
+      await ctx.db.delete(lesson._id);
+    }
+
+    return { deletedLessons: lessons.length };
   },
 });
 

@@ -52,20 +52,25 @@ export default defineSchema({
     submittedAt: v.number(),
   }).index("assignment", ["assignmentId"]).index("student", ["studentId"]),
 
-  units: defineTable({
+  lessons: defineTable({
     classId: v.id("classes"),
     title: v.string(),
-    description: v.string(),
-    order: v.number(),
-  }).index("class", ["classId"]).index("order", ["order"]),
-
-  lessons: defineTable({
-    unitId: v.id("units"),
-    title: v.string(),
     content: v.string(),
+    pretext: v.optional(v.string()),
+    dataContext: v.optional(v.string()),
     order: v.number(),
     xpAward: v.number(),
-  }).index("unit", ["unitId"]).index("order", ["order"]),
+    questions: v.optional(v.array(v.object({
+      prompt: v.string(),
+      options: v.array(v.string()),
+      correctIndex: v.number(),
+      explanation: v.optional(v.string()),
+    }))),
+    flashcards: v.optional(v.array(v.object({
+      front: v.string(),
+      back: v.string(),
+    }))),
+  }).index("class", ["classId"]).index("order", ["order"]),
 
   userProgress: defineTable({
     userId: v.string(), // email or user lookup
