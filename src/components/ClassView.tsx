@@ -19,16 +19,18 @@ interface ClassViewProps {
     onOpenSettings: () => void;
 }
 
+type ClassTab = "stream" | "classwork" | "people" | "grades" | "path" | "leaderboard";
+
 export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewProps) {
-    const [activeTab, setActiveTab] = useState<"stream" | "classwork" | "people" | "grades" | "path" | "leaderboard">("stream");
+    const [activeTab, setActiveTab] = useState<ClassTab>("stream");
     const [selectedFile, setSelectedFile] = useState<any>(null);
     const classData = useQuery(api.myFunctions.getClassById, { classId });
 
     if (!classData) return <div className="p-10 text-slate-400 font-bold animate-pulse text-center">Loading Class...</div>;
 
-    const tabs = (user.role === "teacher"
-        ? ["stream", "classwork", "people", "grades", "path", "leaderboard"]
-        : ["stream", "classwork", "people", "path", "leaderboard"]) as const;
+    const teacherTabs: ClassTab[] = ["stream", "classwork", "people", "grades", "path", "leaderboard"];
+    const studentTabs: ClassTab[] = ["stream", "classwork", "people", "path", "leaderboard"];
+    const tabs = user.role === "teacher" ? teacherTabs : studentTabs;
 
     return (
         <div className="animate-in fade-in duration-500 px-3 sm:px-4 md:px-8 pt-6 flex flex-col items-center">

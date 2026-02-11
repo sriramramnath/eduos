@@ -12,7 +12,6 @@ import {
   Lock,
   Plus,
   RotateCcw,
-  Sparkles,
   Star,
   Zap,
 } from "lucide-react";
@@ -68,9 +67,6 @@ export function LearningPath({ classId, user }: LearningPathProps) {
 
   const totalTasks = learningPath.length;
   const completedTasks = learningPath.filter((task: any) => task.isCompleted).length;
-  const totalXp = learningPath.reduce((sum: number, task: any) => sum + (task.xpAward || 0), 0);
-  const nextTaskSummary = learningPath.find((task: any) => !task.isCompleted);
-
   const stageSequence = useMemo<TaskStage[]>(() => {
     if (!selectedTask) return [];
     const sequence: TaskStage[] = [];
@@ -97,16 +93,17 @@ export function LearningPath({ classId, user }: LearningPathProps) {
 
   const normalizeQuestions = (questions: TaskQuestion[]) =>
     questions
-      .map((q) => {
+      .map((q): TaskQuestion | null => {
         const prompt = q.prompt.trim();
         const options = q.options.map((opt) => opt.trim()).filter(Boolean);
         if (!prompt || options.length < 2) return null;
         const correctIndex = Math.min(Math.max(q.correctIndex, 0), options.length - 1);
+        const explanation = q.explanation?.trim();
         return {
           prompt,
           options,
           correctIndex,
-          explanation: q.explanation?.trim() || undefined,
+          ...(explanation ? { explanation } : {}),
         };
       })
       .filter((q): q is TaskQuestion => q !== null);

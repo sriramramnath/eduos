@@ -4,7 +4,7 @@ import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/re
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
 import { SettingsPage } from "./components/SettingsPage";
-import { LogOut, Rocket, GraduationCap, Presentation } from "lucide-react";
+import { Rocket, GraduationCap, Presentation } from "lucide-react";
 import { BookMascot } from "./components/BookMascot";
 
 export default function App() {
@@ -68,9 +68,13 @@ function DashboardContent() {
         media.addEventListener("change", applyTheme);
         return () => media.removeEventListener("change", applyTheme);
       }
-      if ("addListener" in media) {
-        media.addListener(applyTheme);
-        return () => media.removeListener(applyTheme);
+      const legacyMedia = media as MediaQueryList & {
+        addListener?: (listener: () => void) => void;
+        removeListener?: (listener: () => void) => void;
+      };
+      if (typeof legacyMedia.addListener === "function") {
+        legacyMedia.addListener(applyTheme);
+        return () => legacyMedia.removeListener?.(applyTheme);
       }
     }
   }, [theme]);
