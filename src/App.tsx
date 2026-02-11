@@ -27,7 +27,7 @@ function DashboardContent() {
   const classes = useQuery(api.myFunctions.getMyClasses) || [];
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [activePage, setActivePage] = useState<"dashboard" | "settings">("dashboard");
-  const [theme, setTheme] = useState<"sun" | "moon">("sun");
+  const [theme, setTheme] = useState<"device" | "sun" | "moon">("device");
 
   const getCookie = (name: string) => {
     const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
@@ -41,21 +41,38 @@ function DashboardContent() {
 
   useEffect(() => {
     const saved = getCookie("eduos_theme");
-    if (saved === "sun" || saved === "moon") {
+    if (saved === "device" || saved === "sun" || saved === "moon") {
       setTheme(saved);
       return;
     }
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setTheme(prefersDark ? "moon" : "sun");
+    setTheme("device");
   }, []);
 
   useEffect(() => {
-    if (theme === "sun") {
-      document.documentElement.removeAttribute("data-theme");
-    } else {
-      document.documentElement.setAttribute("data-theme", theme);
-    }
+    const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    const applyTheme = () => {
+      const prefersDark = media ? media.matches : false;
+      const resolved = theme === "device" ? (prefersDark ? "moon" : "sun") : theme;
+      if (resolved === "sun") {
+        document.documentElement.removeAttribute("data-theme");
+      } else {
+        document.documentElement.setAttribute("data-theme", resolved);
+      }
+    };
+
+    applyTheme();
     setCookie("eduos_theme", theme);
+
+    if (theme === "device" && media) {
+      if ("addEventListener" in media) {
+        media.addEventListener("change", applyTheme);
+        return () => media.removeEventListener("change", applyTheme);
+      }
+      if ("addListener" in media) {
+        media.addListener(applyTheme);
+        return () => media.removeListener(applyTheme);
+      }
+    }
   }, [theme]);
 
 

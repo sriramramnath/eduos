@@ -1142,6 +1142,27 @@ export const adminCreateLesson = mutation({
   },
 });
 
+export const adminDeleteLesson = mutation({
+  args: { lessonId: v.id("lessons") },
+  handler: async (ctx, { lessonId }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user || data.user.role !== "teacher") {
+      throw new Error("Only teachers can delete tasks");
+    }
+
+    const progress = await ctx.db
+      .query("userProgress")
+      .withIndex("lesson", (q) => q.eq("lessonId", lessonId))
+      .collect();
+    for (const entry of progress) {
+      await ctx.db.delete(entry._id);
+    }
+
+    await ctx.db.delete(lessonId);
+    return { deleted: true };
+  },
+});
+
 export const adminClearLearningPath = mutation({
   args: { classId: v.id("classes") },
   handler: async (ctx, { classId }) => {
@@ -1150,10 +1171,10 @@ export const adminClearLearningPath = mutation({
       throw new Error("Only teachers can clear learning paths");
     }
 
-    const lessons = await ctx.db
-      .query("lessons")
-      .withIndex("class", (q) => q.eq("classId", classId))
-      .collect();
+    const allLessons = await ctx.db.query("lessons").collect();
+    const lessons = allLessons.filter((lesson) =>
+      !("classId" in lesson) || lesson.classId === classId
+    );
 
     for (const lesson of lessons) {
       const progress = await ctx.db

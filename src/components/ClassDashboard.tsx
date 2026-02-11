@@ -44,6 +44,7 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass,
         classId={selectedClass._id}
         user={user}
         onBack={() => setSelectedClass(null)}
+        onOpenSettings={onOpenSettings}
       />
     );
   }

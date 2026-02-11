@@ -7,6 +7,7 @@ import {
   BookOpen,
   Check,
   ClipboardCheck,
+  Trash2,
   Flame,
   Lock,
   Plus,
@@ -43,6 +44,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
   const completeLesson = useMutation(api.myFunctions.completeLesson);
   const createLesson = useMutation(api.myFunctions.adminCreateLesson);
   const clearLearningPath = useMutation(api.myFunctions.adminClearLearningPath);
+  const deleteLesson = useMutation(api.myFunctions.adminDeleteLesson);
 
   const [isAddingTask, setIsAddingTask] = useState(false);
 
@@ -144,6 +146,11 @@ export function LearningPath({ classId, user }: LearningPathProps) {
     await completeLesson({ lessonId });
   };
 
+  const handleDeleteTask = async (lessonId: Id<"lessons">) => {
+    if (!window.confirm("Delete this task and its progress?")) return;
+    await deleteLesson({ lessonId });
+  };
+
   const openTask = (task: any, isLocked: boolean) => {
     if (isLocked) return;
     setSelectedTask({
@@ -209,54 +216,6 @@ export function LearningPath({ classId, user }: LearningPathProps) {
 
   return (
     <div className="relative max-w-6xl mx-auto py-10 space-y-12 text-left">
-      <div className="premium-card p-8 relative overflow-hidden">
-        <div className="absolute -right-16 -top-16 w-52 h-52 rounded-full bg-emerald-100/50 blur-3xl pointer-events-none" />
-        <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 border border-emerald-100/50">
-              <Sparkles className="w-3 h-3" />
-              Task Run
-            </div>
-            <div>
-              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-                Teacher-Curated Tasks
-              </h2>
-              <p className="text-sm text-slate-600 font-medium max-w-xl mt-2">
-                Each task includes pretext, data briefs, flashcards, and quizzes. Work through them in order and bank XP.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100/50 text-xs font-bold text-emerald-700">
-                {completedTasks}/{totalTasks || 0} tasks cleared
-              </div>
-              <div className="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-600">
-                {totalXp} XP on the path
-              </div>
-              {nextTaskSummary && user.role === "student" && (
-                <button
-                  onClick={() => openTask(nextTaskSummary, false)}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all flex items-center gap-2"
-                >
-                  Continue
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            {nextTaskSummary && (
-              <div className="text-[11px] text-slate-500 font-semibold">
-                Next task: <span className="text-slate-800 font-bold">{nextTaskSummary.title}</span>
-              </div>
-            )}
-          </div>
-          <div className="relative flex items-end gap-4">
-            <BookMascot mood="happy" size={132} label={`${mascotName} cheering`} className="drop-shadow-xl" />
-            <div className="absolute -bottom-6 -right-10">
-              <BookMascot mood="curious" size={78} label={`${mascotName} curious`} className="drop-shadow-lg" />
-            </div>
-          </div>
-        </div>
-      </div>
-
       {user.role === "teacher" && (
         <div className="flex justify-end gap-2">
           <button
@@ -582,11 +541,13 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                   <div
                     key={task._id}
                     className={`premium-card p-6 relative overflow-hidden transition-all ${
-                      isLocked
-                        ? "bg-slate-50 border-slate-200 hover:border-slate-200 hover:shadow-none"
-                        : isCurrent
-                          ? "border-emerald-400"
-                          : ""
+                      isCompleted
+                        ? "border-emerald-400"
+                        : isLocked
+                          ? "bg-slate-50 border-slate-200 hover:border-slate-200 hover:shadow-none"
+                          : isCurrent
+                            ? "border-emerald-400"
+                            : ""
                     }`}
                   >
                     <div className="absolute -right-8 -bottom-6 opacity-80">
@@ -637,6 +598,14 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                           <div className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-widest">
                             <Star className="w-3 h-3" /> Complete
                           </div>
+                        )}
+                        {user.role === "teacher" && (
+                          <button
+                            onClick={() => handleDeleteTask(task._id)}
+                            className="px-3 py-2 rounded-xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1"
+                          >
+                            <Trash2 className="w-4 h-4" /> Delete
+                          </button>
                         )}
                         <button
                           onClick={() => openTask(task, isLocked)}
@@ -749,12 +718,30 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                     </div>
                     <BookMascot mood="happy" size={72} label={`${mascotName} flashcards`} />
                   </div>
-                  <div className="relative rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center shadow-sm">
-                    <div className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-2">
-                      {flashcardFlipped ? "Back" : "Front"}
-                    </div>
-                    <div className="text-xl font-black text-slate-900">
-                      {flashcardFlipped ? activeFlashcard.back : activeFlashcard.front}
+                  <div className="relative h-48 md:h-56 w-full" style={{ perspective: "1200px" }}>
+                    <div
+                      className={`absolute inset-0 rounded-3xl border border-slate-200 bg-slate-50 shadow-sm transition-transform duration-500 ${
+                        flashcardFlipped ? "rotate-y-180" : ""
+                      }`}
+                      style={{
+                        transformStyle: "preserve-3d",
+                        transform: flashcardFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                      }}
+                    >
+                      <div
+                        className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center"
+                        style={{ backfaceVisibility: "hidden" }}
+                      >
+                        <div className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-2">Front</div>
+                        <div className="text-xl font-black text-slate-900">{activeFlashcard.front}</div>
+                      </div>
+                      <div
+                        className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center"
+                        style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                      >
+                        <div className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-2">Back</div>
+                        <div className="text-xl font-black text-slate-900">{activeFlashcard.back}</div>
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">

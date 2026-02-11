@@ -9,26 +9,31 @@ import { Gradebook } from "./Gradebook";
 import { LearningPath } from "./LearningPath";
 import { Scoreboard } from "./Scoreboard";
 import { FileViewer } from "./FileViewer";
-import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus } from "lucide-react";
+import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus, Crown, User } from "lucide-react";
 import { Composer } from "./Composer";
 
 interface ClassViewProps {
     classId: Id<"classes">;
     user: any;
     onBack: () => void;
+    onOpenSettings: () => void;
 }
 
-export function ClassView({ classId, user, onBack }: ClassViewProps) {
+export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewProps) {
     const [activeTab, setActiveTab] = useState<"stream" | "classwork" | "people" | "grades" | "path" | "leaderboard">("stream");
     const [selectedFile, setSelectedFile] = useState<any>(null);
     const classData = useQuery(api.myFunctions.getClassById, { classId });
 
     if (!classData) return <div className="p-10 text-slate-400 font-bold animate-pulse text-center">Loading Class...</div>;
 
+    const tabs = (user.role === "teacher"
+        ? ["stream", "classwork", "people", "grades", "path", "leaderboard"]
+        : ["stream", "classwork", "people", "path", "leaderboard"]) as const;
+
     return (
-        <div className="animate-in fade-in duration-500 px-4 md:px-8 pt-6 flex flex-col items-center">
+        <div className="animate-in fade-in duration-500 px-3 sm:px-4 md:px-8 pt-6 flex flex-col items-center">
             {/* Centered Navigation & User Stats Bar */}
-            <nav className="w-full max-w-6xl mx-auto mb-8">
+            <nav className="w-full max-w-6xl mx-auto mb-8 hidden md:block">
                 <div className="flex items-center justify-between gap-4 bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl px-4 py-3 shadow-sm relative z-20">
                     <button
                         onClick={onBack}
@@ -40,9 +45,10 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
 
                     {/* Centered Navigation Tabs */}
                     <div
-                        className="absolute left-1/2 -translate-x-1/2 p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:grid w-full max-w-2xl grid-cols-6"
+                        className="absolute left-1/2 -translate-x-1/2 p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:grid w-full max-w-2xl"
                         style={{
-                            ["--tab-index" as any]: ["stream", "classwork", "people", "grades", "path", "leaderboard"].indexOf(activeTab),
+                            ["--tab-index" as any]: tabs.indexOf(activeTab as any),
+                            gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
                         }}
                     >
                         {/* Sliding Highlight */}
@@ -50,12 +56,12 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                             <div
                                 className="h-full rounded-lg bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
                                 style={{
-                                    width: "calc(100% / 6)",
+                                    width: `calc(100% / ${tabs.length})`,
                                     transform: "translateX(calc(var(--tab-index) * 100%))",
                                 }}
                             />
                         </div>
-                        {(["stream", "classwork", "people", "grades", "path", "leaderboard"] as const).map((tab) => (
+                        {tabs.map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -65,10 +71,15 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                                 {tab === "stream" && <MessageSquare className="w-3 h-3" />}
                                 {tab === "classwork" && <FileText className="w-3 h-3" />}
                                 {tab === "people" && <Users className="w-3 h-3" />}
-                                {tab === "grades" && <ClipboardList className="w-3 h-3" />}
+                                {tab === "grades" && (
+                                    <>
+                                        <ClipboardList className="w-3 h-3" />
+                                        <Crown className="w-3 h-3 text-amber-400" />
+                                    </>
+                                )}
                                 {tab === "path" && <Map className="w-3 h-3" />}
                                 {tab === "leaderboard" && <Trophy className="w-3 h-3" />}
-                                <span className="hidden lg:inline">{tab}</span>
+                                <span className="hidden lg:inline">{tab === "grades" ? "analytics" : tab}</span>
                             </button>
                         ))}
                     </div>
@@ -81,7 +92,7 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
                         </div>
                         <img
                             src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
-                            className="w-9 h-9 rounded-xl border-2 border-white shadow-md ring-1 ring-slate-100 hidden sm:block"
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border-2 border-white shadow-md ring-1 ring-slate-100 hidden sm:block"
                             alt={user.name}
                         />
                     </div>
@@ -89,31 +100,47 @@ export function ClassView({ classId, user, onBack }: ClassViewProps) {
             </nav>
 
             {/* Mobile Bottom Navigation */}
-            <div className="md:hidden fixed bottom-6 left-6 right-6 h-14 bg-white/80 backdrop-blur-xl border border-slate-200/50 rounded-2xl flex items-center justify-around z-50 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
-                <div className="absolute top-2 left-2 right-2 h-10 pointer-events-none">
-                    <div
-                        className="h-full rounded-xl bg-emerald-600 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-sm shadow-emerald-600/20"
-                        style={{
-                            width: '16.666%',
-                            transform: `translateX(${["stream", "classwork", "people", "grades", "path", "leaderboard"].indexOf(activeTab as any) * 100}%)`,
-                        }}
-                    />
+            <div className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-3 right-3 sm:left-6 sm:right-6 h-14 bg-white/80 backdrop-blur-xl border border-slate-200/50 rounded-2xl flex items-center z-50 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+                <div className="relative flex-1 h-full">
+                    <div className="absolute top-2 left-2 right-2 h-10 pointer-events-none">
+                        <div
+                            className="h-full rounded-xl bg-emerald-600 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-sm shadow-emerald-600/20"
+                            style={{
+                                width: `${100 / tabs.length}%`,
+                                transform: `translateX(${tabs.indexOf(activeTab as any) * 100}%)`,
+                            }}
+                        />
+                    </div>
+                    <div className="relative z-10 h-full flex">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`relative z-10 flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-400"}`}
+                            >
+                                {tab === "stream" && <MessageSquare className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                {tab === "classwork" && <FileText className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                {tab === "people" && <Users className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                {tab === "grades" && (
+                                    <div className="flex items-center gap-1">
+                                        <ClipboardList className="w-5 h-5 transition-transform group-active:scale-95" />
+                                        <Crown className="w-3.5 h-3.5 text-amber-400" />
+                                    </div>
+                                )}
+                                {tab === "path" && <Map className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                {tab === "leaderboard" && <Trophy className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">{tab === "grades" ? "analytics" : tab}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                {(["stream", "classwork", "people", "grades", "path", "leaderboard"] as const).map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`relative z-10 flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-400"}`}
-                    >
-                        {tab === "stream" && <MessageSquare className="w-5 h-5 transition-transform group-active:scale-95" />}
-                        {tab === "classwork" && <FileText className="w-5 h-5 transition-transform group-active:scale-95" />}
-                        {tab === "people" && <Users className="w-5 h-5 transition-transform group-active:scale-95" />}
-                        {tab === "grades" && <ClipboardList className="w-5 h-5 transition-transform group-active:scale-95" />}
-                        {tab === "path" && <Map className="w-5 h-5 transition-transform group-active:scale-95" />}
-                        {tab === "leaderboard" && <Trophy className="w-5 h-5 transition-transform group-active:scale-95" />}
-                        <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">{tab}</span>
-                    </button>
-                ))}
+                <button
+                    onClick={onOpenSettings}
+                    className="mx-2 w-10 h-10 rounded-xl border border-slate-200 bg-white/90 shadow-sm flex items-center justify-center"
+                    title="Settings"
+                >
+                    <User className="w-5 h-5 text-slate-500" />
+                </button>
             </div>
 
             <main className="w-full max-w-6xl mx-auto text-left pb-24 md:pb-16">

@@ -53,7 +53,8 @@ export default defineSchema({
   }).index("assignment", ["assignmentId"]).index("student", ["studentId"]),
 
   lessons: defineTable({
-    classId: v.id("classes"),
+    classId: v.optional(v.id("classes")),
+    unitId: v.optional(v.id("units")),
     title: v.string(),
     content: v.string(),
     pretext: v.optional(v.string()),

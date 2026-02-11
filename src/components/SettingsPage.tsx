@@ -1,11 +1,11 @@
-import { LogOut, ArrowLeft, User, Shield, Bell, Sparkles } from "lucide-react";
+import { LogOut, ArrowLeft, User, Shield, Bell, Sparkles, Sun, Moon, Monitor } from "lucide-react";
 
 interface SettingsPageProps {
   user: any;
   onBack: () => void;
   onSignOut: () => void;
-  theme: "sun" | "moon";
-  onThemeChange: (theme: "sun" | "moon") => void;
+  theme: "device" | "sun" | "moon";
+  onThemeChange: (theme: "device" | "sun" | "moon") => void;
 }
 
 export function SettingsPage({
@@ -102,17 +102,26 @@ export function SettingsPage({
           <Sparkles className="w-4 h-4" />
           <h3 className="text-sm font-bold">Appearance</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button
+            onClick={() => onThemeChange("device")}
+            className={`px-4 py-3 rounded-md border font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${theme === "device" ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            Device
+          </button>
           <button
             onClick={() => onThemeChange("sun")}
-            className={`px-4 py-3 rounded-md border font-bold text-[11px] uppercase tracking-widest transition-all ${theme === "sun" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+            className={`px-4 py-3 rounded-md border font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${theme === "sun" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
           >
+            <Sun className="w-3.5 h-3.5" />
             Sun (Light)
           </button>
           <button
             onClick={() => onThemeChange("moon")}
-            className={`px-4 py-3 rounded-md border font-bold text-[11px] uppercase tracking-widest transition-all ${theme === "moon" ? "border-slate-600 bg-slate-900 text-slate-200" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+            className={`px-4 py-3 rounded-md border font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${theme === "moon" ? "border-slate-600 bg-slate-900 text-slate-200" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
           >
+            <Moon className="w-3.5 h-3.5" />
             Moon (Dark)
           </button>
         </div>
