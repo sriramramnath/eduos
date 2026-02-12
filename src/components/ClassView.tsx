@@ -442,7 +442,7 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                                                        {entry.uploadedBy.split("@")[0]} shared a resource
+                                                        {entry.uploadedBy.split("@")[0]} {entry.isAssignment ? "posted homework" : "shared a resource"}
                                                     </p>
                                                     <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
                                                         {entry.name}
@@ -1526,18 +1526,60 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                                     <p className="text-xs text-slate-400 font-medium">No submissions yet.</p>
                                 )}
                                 {submissions.map((s: any) => (
-                                    <div key={s._id} className="flex items-center justify-between text-sm">
-                                        <div>
-                                            <p className="font-bold text-slate-800">{getAssignmentName(s.assignmentId)}</p>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(s.submittedAt).toLocaleDateString()}</p>
+                                    <div key={s._id} className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <div>
+                                                <p className="font-bold text-slate-800">{getAssignmentName(s.assignmentId)}</p>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(s.submittedAt).toLocaleDateString()}</p>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {s.content && (
+                                                    <span className="px-2 py-0.5 rounded-full border border-slate-200 bg-white text-[8px] font-bold uppercase tracking-widest text-slate-500">
+                                                        Text
+                                                    </span>
+                                                )}
+                                                {s.linkUrl && (
+                                                    <span className="px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[8px] font-bold uppercase tracking-widest text-emerald-700">
+                                                        Link
+                                                    </span>
+                                                )}
+                                                {s.fileUrl && (
+                                                    <span className="px-2 py-0.5 rounded-full border border-sky-200 bg-sky-50 text-[8px] font-bold uppercase tracking-widest text-sky-700">
+                                                        File
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        {user.role === "teacher" && (
-                                            <button
-                                                onClick={() => setActiveSimilarity({ assignmentId: s.assignmentId, studentId: selectedStudent.email })}
-                                                className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
-                                            >
-                                                Similarity
-                                            </button>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {s.linkUrl && (
+                                                <button
+                                                    onClick={() => window.open(s.linkUrl, "_blank")}
+                                                    className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white"
+                                                >
+                                                    Open Link
+                                                </button>
+                                            )}
+                                            {s.fileUrl && (
+                                                <button
+                                                    onClick={() => window.open(s.fileUrl, "_blank")}
+                                                    className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white"
+                                                >
+                                                    Open File
+                                                </button>
+                                            )}
+                                            {user.role === "teacher" && s.content && (
+                                                <button
+                                                    onClick={() => setActiveSimilarity({ assignmentId: s.assignmentId, studentId: selectedStudent.email })}
+                                                    className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-white"
+                                                >
+                                                    Similarity
+                                                </button>
+                                            )}
+                                        </div>
+                                        {s.content && (
+                                            <p className="text-xs text-slate-600 whitespace-pre-wrap bg-white rounded-md border border-slate-200 px-3 py-2">
+                                                {s.content}
+                                            </p>
                                         )}
                                     </div>
                                 ))}

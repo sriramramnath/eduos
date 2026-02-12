@@ -13,19 +13,28 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
   const [duration, setDuration] = useState(60);
   const [dueDate, setDueDate] = useState(file.dueDate ? new Date(file.dueDate).toISOString().slice(0, 16) : "");
   const [instructions, setInstructions] = useState(file.instructions || "");
+  const [questionPromptsText, setQuestionPromptsText] = useState((file.questionPrompts || []).join("\n"));
   const [selectedOutcomes, setSelectedOutcomes] = useState<string[]>((file.outcomeIds as any) || []);
   const outcomes = useQuery(api.myFunctions.getOutcomes, { classId: file.classId }) || [];
   const updateAssignmentDetails = useMutation(api.myFunctions.updateAssignmentDetails);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    await updateAssignmentDetails({
-      fileId: file._id,
-      dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
-      instructions: instructions || undefined,
-      outcomeIds: selectedOutcomes.length ? (selectedOutcomes as any) : undefined,
-    });
-    onClose();
+    const questionPrompts = questionPromptsText
+      .split("\n")
+      .map((prompt) => prompt.trim())
+      .filter(Boolean);
+
+    void (async () => {
+      await updateAssignmentDetails({
+        fileId: file._id,
+        dueDate: dueDate ? new Date(dueDate).getTime() : undefined,
+        instructions: instructions || undefined,
+        questionPrompts: questionPrompts.length ? questionPrompts : undefined,
+        outcomeIds: selectedOutcomes.length ? (selectedOutcomes as any) : undefined,
+      });
+      onClose();
+    })();
   };
 
   return (
@@ -84,6 +93,18 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
               onChange={(e) => setInstructions(e.target.value)}
               className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-medium text-slate-600 text-sm h-24 resize-none"
               placeholder="Add assignment instructions"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+              Questions (One Per Line)
+            </label>
+            <textarea
+              value={questionPromptsText}
+              onChange={(e) => setQuestionPromptsText(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-medium text-slate-600 text-sm h-28 resize-y"
+              placeholder={"What is the main idea?\nSolve #1-5 and show your work.\nSummarize the article in 3 sentences."}
             />
           </div>
 

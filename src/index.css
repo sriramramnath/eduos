@@ -133,6 +133,12 @@ body {
   color: #10b981 !important;
 }
 
+[data-theme="moon"] .leaderboard-podium-card-first {
+  background: linear-gradient(145deg, #0f172a 0%, #111827 100%) !important;
+  border-color: #334155 !important;
+  box-shadow: 0 28px 55px -30px rgba(56, 189, 248, 0.45) !important;
+}
+
 h1,
 h2,
 h3,

@@ -54,7 +54,7 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                         // Map index to visually order: 2nd, 1st, 3rd on desktop
                         const orderClass = idx === 0 ? "md:order-2 md:scale-110" : idx === 1 ? "md:order-1" : "md:order-3";
                         const themeClass = idx === 0
-                            ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 shadow-amber-200/20"
+                            ? "leaderboard-podium-card-first bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 shadow-amber-200/20"
                             : idx === 1
                                 ? "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200"
                                 : "bg-gradient-to-br from-orange-50/30 to-amber-50/30 border-orange-100";

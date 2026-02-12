@@ -40,6 +40,7 @@ export default defineSchema({
     isAssignment: v.boolean(),
     dueDate: v.optional(v.number()),
     instructions: v.optional(v.string()),
+    questionPrompts: v.optional(v.array(v.string())),
     outcomeIds: v.optional(v.array(v.id("outcomes"))),
   }).index("class", ["classId"]),
 
@@ -48,6 +49,10 @@ export default defineSchema({
     studentId: v.string(),
     classId: v.id("classes"),
     storageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    fileMimeType: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
+    linkUrl: v.optional(v.string()),
     content: v.optional(v.string()),
     submittedAt: v.number(),
   }).index("assignment", ["assignmentId"]).index("student", ["studentId"]),

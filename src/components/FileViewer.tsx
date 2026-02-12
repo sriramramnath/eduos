@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Doc } from "../../convex/_generated/dataModel";
-import { X, Download, Image as ImageIcon, File, Globe, Layout, Edit3, Presentation, ExternalLink } from "lucide-react";
+import { Doc, Id } from "../../convex/_generated/dataModel";
+import { X, Download, Image as ImageIcon, File as FileIcon, Globe, Layout, Edit3, Presentation, ExternalLink, Link2, Upload, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import WebViewer from "@pdftron/webviewer";
 
@@ -15,13 +15,19 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
   const viewer = useRef<HTMLDivElement>(null);
   const fileUrl = useQuery(api.myFunctions.getFileUrl, { storageId: file.storageId });
   const submissions = useQuery(api.myFunctions.getAssignmentSubmissions, file.isAssignment && userRole !== "student" ? { assignmentId: file._id } : "skip") || [];
+  const generateUploadUrl = useMutation(api.myFunctions.generateUploadUrl);
   const submitAssignment = useMutation(api.myFunctions.submitAssignment);
   const [isViewerLoading, setIsViewerLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importTarget, setImportTarget] = useState<"google" | "canva" | null>(null);
   const [submissionText, setSubmissionText] = useState("");
+  const [submissionLink, setSubmissionLink] = useState("");
+  const [submissionFile, setSubmissionFile] = useState<globalThis.File | null>(null);
+  const [submittingAssignment, setSubmittingAssignment] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
   const [showSubmission, setShowSubmission] = useState(false);
+  const questionPrompts = file.questionPrompts || [];
 
   const isOfficeDoc = (
     file.mimeType.includes("pdf") ||
@@ -81,7 +87,7 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
         setIsViewerLoading(false);
       });
     }
-  }, [fileUrl, isOfficeDoc]);
+  }, [fileUrl, isOfficeDoc, file.name]);
 
   const handleCloudImport = (target: "google" | "canva") => {
     setIsImporting(true);
@@ -121,6 +127,58 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
     }, 1500);
   };
 
+  const handleAssignmentSubmit = async () => {
+    const trimmedText = submissionText.trim();
+    const rawLink = submissionLink.trim();
+    const normalizedLink = rawLink && !/^https?:\/\//i.test(rawLink) ? `https://${rawLink}` : rawLink;
+
+    if (!trimmedText && !normalizedLink && !submissionFile) return;
+
+    setSubmittingAssignment(true);
+    setSubmissionError("");
+
+    try {
+      let storageId: Id<"_storage"> | undefined = undefined;
+      if (submissionFile) {
+        const uploadUrl = await generateUploadUrl();
+        const uploadResult = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": submissionFile.type || "application/octet-stream" },
+          body: submissionFile,
+        });
+
+        if (!uploadResult.ok) {
+          throw new Error("File upload failed");
+        }
+
+        const uploaded = await uploadResult.json() as { storageId: Id<"_storage"> };
+        storageId = uploaded.storageId;
+      }
+
+      await submitAssignment({
+        assignmentId: file._id,
+        classId: file.classId,
+        content: trimmedText || undefined,
+        linkUrl: normalizedLink || undefined,
+        storageId,
+        fileName: submissionFile ? submissionFile.name : undefined,
+        fileMimeType: submissionFile ? (submissionFile.type || "application/octet-stream") : undefined,
+        fileSize: submissionFile ? submissionFile.size : undefined,
+      });
+
+      setSubmissionText("");
+      setSubmissionLink("");
+      setSubmissionFile(null);
+      setShowSubmission(true);
+    } catch (error) {
+      console.error("Assignment submission failed:", error);
+      setSubmissionError("Submission failed. Please try again.");
+      setShowSubmission(false);
+    } finally {
+      setSubmittingAssignment(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-0 md:p-4 animate-in fade-in duration-200 text-left">
       <div className={`bg-white w-full rounded-none md:rounded-md shadow-2xl overflow-hidden flex flex-col h-screen md:h-[95vh] animate-in zoom-in-95 duration-200 border border-slate-200 relative ${isOfficeDoc ? 'max-w-7xl' : 'max-w-6xl'}`}>
@@ -130,7 +188,7 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
           {/* Left: File Info */}
           <div className="flex items-center gap-3 text-left min-w-0">
             <div className="w-8 h-8 bg-slate-50 rounded-md flex items-center justify-center text-emerald-600 border border-slate-200 flex-shrink-0">
-              {file.mimeType.includes("image") ? <ImageIcon className="w-4 h-4" /> : <File className="w-4 h-4" />}
+              {file.mimeType.includes("image") ? <ImageIcon className="w-4 h-4" /> : <FileIcon className="w-4 h-4" />}
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-slate-900 tracking-tight leading-tight truncate">{file.name}</h2>
@@ -287,65 +345,165 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
 
         {file.isAssignment && (
           <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-4">
-            {userRole === "student" ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-rose-500">Assignment</p>
-                    <p className="text-sm font-bold text-slate-900">{file.name}</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-rose-500">Homework</p>
+                  <p className="text-sm font-bold text-slate-900">{file.name}</p>
+                </div>
+                {file.dueDate && (
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    Due {new Date(file.dueDate).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
+
+              {file.instructions && (
+                <p className="text-xs text-slate-600 whitespace-pre-wrap">{file.instructions}</p>
+              )}
+
+              {questionPrompts.length > 0 && (
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Question Set</p>
+                  <ol className="space-y-1.5">
+                    {questionPrompts.map((question, index) => (
+                      <li key={`${question}-${index}`} className="text-xs text-slate-700">
+                        <span className="font-bold mr-1 text-slate-500">{index + 1}.</span>
+                        {question}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {userRole === "student" ? (
+                <div className="space-y-3">
+                  <textarea
+                    value={submissionText}
+                    onChange={(e) => {
+                      setSubmissionText(e.target.value);
+                      setShowSubmission(false);
+                      setSubmissionError("");
+                    }}
+                    className="w-full px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-medium text-slate-700 h-24 resize-none"
+                    placeholder="Add written answers (optional if you upload/link)."
+                  />
+                  <input
+                    value={submissionLink}
+                    onChange={(e) => {
+                      setSubmissionLink(e.target.value);
+                      setShowSubmission(false);
+                      setSubmissionError("");
+                    }}
+                    className="w-full px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-medium text-slate-700"
+                    placeholder="Paste answer link (Google Doc, Drive, etc.)"
+                  />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        id={`assignment-submission-${file._id}`}
+                        className="hidden"
+                        onChange={(e) => {
+                          setSubmissionFile(e.target.files?.[0] || null);
+                          setShowSubmission(false);
+                          setSubmissionError("");
+                        }}
+                      />
+                      <label
+                        htmlFor={`assignment-submission-${file._id}`}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        {submissionFile ? "Change File" : "Upload Answer File"}
+                      </label>
+                      {submissionFile && (
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {submissionFile.name} ({Math.max(1, Math.round(submissionFile.size / 1024))} KB)
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        void handleAssignmentSubmit();
+                      }}
+                      disabled={submittingAssignment || (!submissionText.trim() && !submissionLink.trim() && !submissionFile)}
+                      className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+                    >
+                      {submittingAssignment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      {submittingAssignment ? "Submitting..." : "Submit Homework"}
+                    </button>
                   </div>
-                  {file.dueDate && (
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      Due {new Date(file.dueDate).toLocaleDateString()}
-                    </span>
+                  {showSubmission && (
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600">Submission received.</p>
+                  )}
+                  {submissionError && (
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-rose-500">{submissionError}</p>
                   )}
                 </div>
-                {file.instructions && (
-                  <p className="text-xs text-slate-600">{file.instructions}</p>
-                )}
-                <textarea
-                  value={submissionText}
-                  onChange={(e) => setSubmissionText(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-medium text-slate-700 h-24 resize-none"
-                  placeholder="Paste your response or notes here..."
-                />
-                <div className="flex justify-end">
-                  <button
-                    onClick={async () => {
-                      if (!submissionText.trim()) return;
-                      await submitAssignment({ assignmentId: file._id, classId: file.classId, content: submissionText });
-                      setSubmissionText("");
-                      setShowSubmission(true);
-                    }}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
-                  >
-                    Submit
-                  </button>
-                </div>
-                {showSubmission && (
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-600">Submission received.</p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Submissions</p>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{submissions.length} total</span>
-                </div>
-                {submissions.length === 0 ? (
-                  <p className="text-xs text-slate-400 font-medium">No submissions yet.</p>
-                ) : (
-                  <div className="space-y-2 max-h-40 overflow-auto">
-                    {submissions.map((s: any) => (
-                      <div key={s._id} className="flex items-center justify-between text-xs text-slate-600 border border-slate-200 rounded-md bg-white px-3 py-2">
-                        <span>{s.studentId}</span>
-                        <span className="font-bold">{new Date(s.submittedAt).toLocaleDateString()}</span>
-                      </div>
-                    ))}
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Submissions</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{submissions.length} total</span>
                   </div>
-                )}
-              </div>
-            )}
+                  {submissions.length === 0 ? (
+                    <p className="text-xs text-slate-400 font-medium">No submissions yet.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-56 overflow-auto">
+                      {submissions.map((s: any) => (
+                        <div key={s._id} className="border border-slate-200 rounded-md bg-white px-3 py-2 space-y-2">
+                          <div className="flex items-center justify-between text-xs text-slate-600">
+                            <span className="font-semibold">{s.studentId}</span>
+                            <span className="font-bold">{new Date(s.submittedAt).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {s.content && (
+                              <span className="px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[8px] font-bold uppercase tracking-widest text-slate-500">
+                                Text
+                              </span>
+                            )}
+                            {s.linkUrl && (
+                              <span className="px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[8px] font-bold uppercase tracking-widest text-emerald-700">
+                                Link
+                              </span>
+                            )}
+                            {s.fileUrl && (
+                              <span className="px-2 py-0.5 rounded-full border border-sky-200 bg-sky-50 text-[8px] font-bold uppercase tracking-widest text-sky-700">
+                                File
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {s.linkUrl && (
+                              <button
+                                onClick={() => window.open(s.linkUrl, "_blank")}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+                              >
+                                <Link2 className="w-3 h-3" /> Open Link
+                              </button>
+                            )}
+                            {s.fileUrl && (
+                              <button
+                                onClick={() => window.open(s.fileUrl, "_blank")}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50"
+                              >
+                                <Download className="w-3 h-3" /> Open File
+                              </button>
+                            )}
+                          </div>
+                          {s.content && (
+                            <p className="text-xs text-slate-600 whitespace-pre-wrap bg-slate-50 rounded-md border border-slate-100 px-2.5 py-2">
+                              {s.content}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

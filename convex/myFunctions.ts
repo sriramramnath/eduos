@@ -352,13 +352,24 @@ export const updateAssignmentDetails = mutation({
     fileId: v.id("files"),
     dueDate: v.optional(v.number()),
     instructions: v.optional(v.string()),
+    questionPrompts: v.optional(v.array(v.string())),
     outcomeIds: v.optional(v.array(v.id("outcomes"))),
   },
-  handler: async (ctx, { fileId, dueDate, instructions, outcomeIds }) => {
+  handler: async (ctx, { fileId, dueDate, instructions, questionPrompts, outcomeIds }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
     if (data.user.role !== "teacher") throw new Error("Only teachers can edit assignments");
-    await ctx.db.patch(fileId, { dueDate, instructions, outcomeIds });
+
+    const normalizedPrompts = questionPrompts
+      ?.map((prompt) => prompt.trim())
+      .filter(Boolean);
+
+    await ctx.db.patch(fileId, {
+      dueDate,
+      instructions: instructions?.trim() || undefined,
+      questionPrompts: normalizedPrompts && normalizedPrompts.length > 0 ? normalizedPrompts : undefined,
+      outcomeIds,
+    });
     return await ctx.db.get(fileId);
   },
 });
@@ -374,6 +385,7 @@ export const uploadFile = mutation({
     isAssignment: v.boolean(),
     dueDate: v.optional(v.number()),
     instructions: v.optional(v.string()),
+    questionPrompts: v.optional(v.array(v.string())),
     outcomeIds: v.optional(v.array(v.id("outcomes"))),
   },
   handler: async (ctx, args) => {
@@ -399,6 +411,7 @@ export const uploadFile = mutation({
       isAssignment: args.isAssignment,
       dueDate: args.dueDate,
       instructions: args.instructions,
+      questionPrompts: args.questionPrompts,
       outcomeIds: args.outcomeIds,
     });
   },
@@ -599,16 +612,55 @@ export const submitAssignment = mutation({
     assignmentId: v.id("files"),
     classId: v.id("classes"),
     content: v.optional(v.string()),
+    linkUrl: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    fileMimeType: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
   },
-  handler: async (ctx, { assignmentId, classId, content }) => {
+  handler: async (ctx, { assignmentId, classId, content, linkUrl, storageId, fileName, fileMimeType, fileSize }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
     if (data.user.role !== "student") throw new Error("Only students can submit assignments");
+    const studentEmail = data.user.email;
+
+    const assignment = await ctx.db.get(assignmentId);
+    if (!assignment || assignment.classId !== classId || !assignment.isAssignment) {
+      throw new Error("Invalid assignment");
+    }
+
+    const membership = await ctx.db
+      .query("classMembers")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .filter((q) => q.eq(q.field("studentId"), studentEmail))
+      .first();
+
+    if (!membership) {
+      throw new Error("You must be enrolled in this class to submit");
+    }
+
+    const normalizedContent = content?.trim();
+    const normalizedLink = linkUrl?.trim();
+    const hasFile = !!storageId;
+
+    if (!normalizedContent && !normalizedLink && !hasFile) {
+      throw new Error("Add text, a link, or a file before submitting");
+    }
+
+    if (hasFile && (!fileName || !fileMimeType || fileSize === undefined)) {
+      throw new Error("File metadata is required for file submissions");
+    }
+
     return await ctx.db.insert("submissions", {
       assignmentId,
-      studentId: data.user.email,
+      studentId: studentEmail,
       classId,
-      content,
+      content: normalizedContent || undefined,
+      linkUrl: normalizedLink || undefined,
+      storageId,
+      fileName,
+      fileMimeType,
+      fileSize,
       submittedAt: Date.now(),
     });
   },
@@ -626,7 +678,13 @@ export const getAssignmentSubmissions = query({
       .query("submissions")
       .withIndex("assignment", (q) => q.eq("assignmentId", assignmentId))
       .collect();
-    return submissions;
+
+    return await Promise.all(
+      submissions.map(async (submission) => {
+        const fileUrl = submission.storageId ? await ctx.storage.getUrl(submission.storageId) : null;
+        return { ...submission, fileUrl };
+      })
+    );
   },
 });
 
@@ -638,11 +696,18 @@ export const getStudentSubmissions = query({
     if (data.user.role === "student" && data.user.email !== studentId) {
       throw new Error("Access denied");
     }
-    return await ctx.db
+    const submissions = await ctx.db
       .query("submissions")
       .withIndex("student", (q) => q.eq("studentId", studentId))
       .filter((q) => q.eq(q.field("classId"), classId))
       .collect();
+
+    return await Promise.all(
+      submissions.map(async (submission) => {
+        const fileUrl = submission.storageId ? await ctx.storage.getUrl(submission.storageId) : null;
+        return { ...submission, fileUrl };
+      })
+    );
   },
 });
 
@@ -656,14 +721,27 @@ export const getSimilarityReport = query({
       .query("submissions")
       .withIndex("assignment", (q) => q.eq("assignmentId", assignmentId))
       .collect();
-    const target = submissions.find((s) => s.studentId === studentId);
-    if (!target?.content) return [];
-    const targetShingles = shingle(target.content);
-    const reports = submissions
-      .filter((s) => s.studentId !== studentId && s.content)
-      .map((s) => {
-        const score = jaccardSimilarity(targetShingles, shingle(s.content || ""));
-        return { studentId: s.studentId, score };
+
+    const targetSubmission = submissions
+      .filter((s) => s.studentId === studentId && !!s.content?.trim())
+      .sort((a, b) => b.submittedAt - a.submittedAt)[0];
+
+    if (!targetSubmission?.content) return [];
+
+    const latestComparable = new Map<string, (typeof submissions)[number]>();
+    for (const submission of submissions) {
+      if (submission.studentId === studentId || !submission.content?.trim()) continue;
+      const existing = latestComparable.get(submission.studentId);
+      if (!existing || submission.submittedAt > existing.submittedAt) {
+        latestComparable.set(submission.studentId, submission);
+      }
+    }
+
+    const targetShingles = shingle(targetSubmission.content);
+    const reports = Array.from(latestComparable.values())
+      .map((submission) => {
+        const score = jaccardSimilarity(targetShingles, shingle(submission.content || ""));
+        return { studentId: submission.studentId, score };
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 3);
