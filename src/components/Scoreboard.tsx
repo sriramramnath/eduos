@@ -6,10 +6,12 @@ import { BookMascot } from "./BookMascot";
 
 interface ScoreboardProps {
     classId?: Id<"classes">;
+    user?: any;
 }
 
-export function Scoreboard({ classId }: ScoreboardProps) {
+export function Scoreboard({ classId, user }: ScoreboardProps) {
     const leaderboard = useQuery(api.myFunctions.getLeaderboard, { classId }) || [];
+    const profile = useQuery((api as any).featureFunctions.getGamificationProfile, { classId }) || null;
 
     // Grouping by XP to handle ties properly
     const ranks: { xp: number; users: typeof leaderboard }[] = [];
@@ -43,8 +45,21 @@ export function Scoreboard({ classId }: ScoreboardProps) {
         <div className="max-w-3xl mx-auto py-12 px-6 animate-in fade-in duration-700 text-left">
             <div className="mb-12 text-center relative">
                 <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-2 uppercase italic">Leaderboard</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">The Elite Circle • XP Champions</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-[0.12em]">The Elite Circle • XP Champions</p>
             </div>
+
+            {profile && (
+                <div className="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-700">Your Gamification Snapshot</p>
+                        <p className="text-sm font-bold text-emerald-900">{user?.name || "You"} • Level {profile.level}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-emerald-800">
+                        <span className="px-2 py-1 rounded-md border border-emerald-300 bg-white">Streak {profile.streak || 0}d</span>
+                        <span className="px-2 py-1 rounded-md border border-emerald-300 bg-white">Badges {profile.badges?.length || 0}</span>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-12">
                 {/* Top 3 Podium Section */}
@@ -74,7 +89,7 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                                     <h3 className="text-lg font-black text-slate-300 uppercase italic">?</h3>
                                     <div className="mt-3 inline-flex items-center gap-2 bg-white/50 px-4 py-1.5 rounded-full border border-slate-100 shadow-sm opacity-50">
                                         <span className="text-lg font-black text-slate-300">0</span>
-                                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">XP</span>
+                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em]">XP</span>
                                     </div>
                                 </div>
                             );
@@ -108,7 +123,7 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                                     </h3>
                                     <div className="mt-3 inline-flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
                                         <span className="text-lg font-black text-slate-900">{rank.xp.toLocaleString()}</span>
-                                        <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">XP</span>
+                                        <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-[0.08em]">XP</span>
                                     </div>
                                 </div>
                             </div>
@@ -120,7 +135,7 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                 {others.length > 0 && (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in duration-500">
                         <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Challengers Circle</p>
+                            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.1em]">Challengers Circle</p>
                         </div>
                         <div className="divide-y divide-slate-50">
                             {others.map((u) => {
@@ -137,11 +152,11 @@ export function Scoreboard({ classId }: ScoreboardProps) {
                                         />
                                         <div className="flex-1 min-w-0">
                                             <h4 className="text-xs font-black text-slate-900 truncate uppercase tracking-tight">{u.name}</h4>
-                                            <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 italic">Rising Star</p>
+                                            <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.08em] mt-0.5 italic">Rising Star</p>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-sm font-black text-slate-900 leading-none">{u.xp.toLocaleString()}</div>
-                                            <div className="text-[7px] font-black text-emerald-600 uppercase tracking-widest mt-1">XP</div>
+                                            <div className="text-[9px] font-semibold text-emerald-600 uppercase tracking-[0.08em] mt-1">XP</div>
                                         </div>
                                     </div>
                                 );

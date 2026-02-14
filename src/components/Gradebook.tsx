@@ -15,17 +15,26 @@ type DraftGrade = {
 };
 
 const LETTER_GRADES = ["A", "B", "C", "D", "F"];
+const EMPTY_ARRAY: any[] = [];
 
 export function Gradebook({ classId, user }: GradebookProps) {
-  const exams = useQuery(api.myFunctions.getClassExams, { classId }) || [];
-  const grades = useQuery(api.myFunctions.getClassGrades, { classId }) || [];
-  const members = useQuery(api.myFunctions.getClassMembers, { classId }) || [];
-  const isPro = user?.email === "sriramramnath2011@gmail.com";
+  const exams = useQuery(api.myFunctions.getClassExams, { classId });
+  const grades = useQuery(api.myFunctions.getClassGrades, { classId });
+  const members = useQuery(api.myFunctions.getClassMembers, { classId });
+  const isPro = true;
+  const featureApi = (api as any).featureFunctions;
+  const gradebookPolicy = useQuery(featureApi.getGradebookPolicy, { classId });
+  const reportCard = useQuery(featureApi.getReportCard, { classId });
+  const examsList = exams ?? EMPTY_ARRAY;
+  const gradesList = grades ?? EMPTY_ARRAY;
+  const membersList = members ?? EMPTY_ARRAY;
 
   const createExam = useMutation(api.myFunctions.createExam);
   const updateExam = useMutation(api.myFunctions.updateExam);
   const deleteExam = useMutation(api.myFunctions.deleteExam);
   const setGrade = useMutation(api.myFunctions.setGrade);
+  const setGradebookPolicy = useMutation(featureApi.setGradebookPolicy);
+  const exportGradesCsv = useQuery(featureApi.exportGradesCsv, user.role === "teacher" ? { classId } : "skip");
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newExamName, setNewExamName] = useState("");
@@ -34,25 +43,27 @@ export function Gradebook({ classId, user }: GradebookProps) {
   const [sortMode, setSortMode] = useState<"name" | "avg_desc" | "avg_asc">("name");
   const [drafts, setDrafts] = useState<Record<string, DraftGrade>>({});
   const [examNameDrafts, setExamNameDrafts] = useState<Record<string, string>>({});
+  const [curvePointsDraft, setCurvePointsDraft] = useState<number | null>(null);
+  const curvePointsValue = curvePointsDraft ?? gradebookPolicy?.curvePoints ?? 0;
 
   const gradesByKey = useMemo(() => {
     const map = new Map<string, { score?: number; letterGrade?: string }>();
-    grades.forEach((grade) => {
+    gradesList.forEach((grade) => {
       map.set(`${grade.examId}:${grade.studentId}`, {
         score: grade.score,
         letterGrade: grade.letterGrade,
       });
     });
     return map;
-  }, [grades]);
+  }, [gradesList]);
 
   const studentRows = useMemo(() => {
-    const rows = members
+    const rows = membersList
       .filter((m) => m.name?.toLowerCase().includes(search.toLowerCase()))
       .map((m) => {
-        const scores = exams
+        const scores = examsList
           .map((exam) => gradesByKey.get(`${exam._id}:${m.email}`)?.score)
-          .filter((s) => typeof s === "number") as number[];
+          .filter((s): s is number => typeof s === "number");
         const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
         return { ...m, avg };
       });
@@ -65,37 +76,38 @@ export function Gradebook({ classId, user }: GradebookProps) {
       rows.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     }
     return rows;
-  }, [members, search, sortMode, exams, gradesByKey]);
+  }, [membersList, search, sortMode, examsList, gradesByKey]);
 
   const analytics = useMemo(() => {
-    const totalStudents = members.length;
-    const totalExams = exams.length;
+    const totalStudents = membersList.length;
+    const totalExams = examsList.length;
 
-    const allScores = grades
+    const allScores = gradesList
       .map((g) => g.score)
-      .filter((s) => typeof s === "number") as number[];
+      .filter((s): s is number => typeof s === "number");
     const overallAvg = allScores.length
       ? Math.round((allScores.reduce((a, b) => a + b, 0) / allScores.length) * 10) / 10
       : null;
 
-    const perExam = exams.map((exam) => {
-      const scores = grades
+    const perExam = examsList.map((exam) => {
+      const scores = gradesList
         .filter((g) => g.examId === exam._id && typeof g.score === "number")
-        .map((g) => g.score as number);
+        .map((g) => g.score)
+        .filter((score): score is number => typeof score === "number");
       const avg = scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null;
       return { exam, avg, count: scores.length };
     });
 
     const letterCounts: Record<string, number> = {};
     LETTER_GRADES.forEach((l) => (letterCounts[l] = 0));
-    grades.forEach((g) => {
+    gradesList.forEach((g) => {
       if (g.letterGrade && letterCounts[g.letterGrade] !== undefined) {
         letterCounts[g.letterGrade] += 1;
       }
     });
 
     return { totalStudents, totalExams, overallAvg, perExam, letterCounts };
-  }, [members.length, exams, grades]);
+  }, [membersList, examsList, gradesList]);
 
   const getDraftKey = (examId: string, studentId: string) => `${examId}:${studentId}`;
 
@@ -141,11 +153,24 @@ export function Gradebook({ classId, user }: GradebookProps) {
     });
   };
 
+  const handleExportCsv = () => {
+    if (!exportGradesCsv) return;
+    const blob = new Blob([exportGradesCsv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.setAttribute("download", `gradebook-${classId}.csv`);
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  };
+
   if (user.role !== "teacher") {
-    const myGrades = grades
+    const myGrades = gradesList
       .map((grade) => ({
         grade,
-        exam: exams.find((e) => e._id === grade.examId),
+        exam: examsList.find((e) => e._id === grade.examId),
       }))
       .filter((item) => item.exam);
 
@@ -162,6 +187,17 @@ export function Gradebook({ classId, user }: GradebookProps) {
         </div>
 
         <div className="premium-card p-6">
+          {reportCard && (
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Report Card</p>
+                <p className="text-sm font-bold text-emerald-900">Weighted Avg {reportCard.average !== null ? reportCard.average.toFixed(1) : "—"} • {reportCard.letter || "N/A"}</p>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                Curve +{reportCard.curvePoints || 0}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {myGrades.map(({ grade, exam }) => (
               <div key={grade._id} className="rounded-xl border border-slate-200 p-4 bg-white">
@@ -213,6 +249,33 @@ export function Gradebook({ classId, user }: GradebookProps) {
               className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all"
             >
               <Plus className="w-4 h-4" /> Add Exam
+            </button>
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Curve</span>
+              <input
+                type="number"
+                value={curvePointsValue}
+                onChange={(e) => setCurvePointsDraft(Number(e.target.value) || 0)}
+                className="w-16 bg-transparent outline-none text-sm font-bold text-slate-700"
+              />
+              <button
+                onClick={() => {
+                  void setGradebookPolicy({
+                    classId,
+                    categories: gradebookPolicy?.categories || [{ name: "Default", weight: 100 }],
+                    curvePoints: curvePointsValue,
+                  });
+                }}
+                className="px-2 py-1 rounded border border-emerald-200 text-[9px] font-bold uppercase tracking-widest text-emerald-700 hover:bg-emerald-50"
+              >
+                Save
+              </button>
+            </div>
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest shadow-sm hover:bg-slate-800 transition-all"
+            >
+              Export CSV
             </button>
           </div>
         </div>
@@ -285,7 +348,7 @@ export function Gradebook({ classId, user }: GradebookProps) {
           <div className="min-w-[900px]">
             <div className="grid grid-cols-[220px_repeat(auto-fit,minmax(200px,1fr))] gap-2 mb-3">
               <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-3">Students</div>
-              {exams.map((exam) => (
+              {examsList.map((exam) => (
                 <div key={exam._id} className="px-2">
                   <div className="flex items-center justify-between gap-2">
                     <input
@@ -294,20 +357,24 @@ export function Gradebook({ classId, user }: GradebookProps) {
                       onBlur={() => {
                         const draft = getExamNameDraft(exam._id, exam.name).trim();
                         if (draft && draft !== exam.name) {
-                          updateExam({ examId: exam._id, name: draft });
+                          void updateExam({ examId: exam._id, name: draft });
                         }
                       }}
                       className="w-full text-[11px] font-black uppercase tracking-widest text-slate-700 bg-slate-50 border border-slate-200 rounded px-2 py-1"
                     />
                     <button
-                      onClick={() => updateExam({ examId: exam._id, isVisibleToStudents: !exam.isVisibleToStudents })}
+                      onClick={() => {
+                        void updateExam({ examId: exam._id, isVisibleToStudents: !exam.isVisibleToStudents });
+                      }}
                       className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-200 transition-all"
                       title={exam.isVisibleToStudents ? "Visible to students" : "Hidden from students"}
                     >
                       {exam.isVisibleToStudents ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                     </button>
                     <button
-                      onClick={() => deleteExam({ examId: exam._id })}
+                      onClick={() => {
+                        void deleteExam({ examId: exam._id });
+                      }}
                       className="w-7 h-7 rounded-md border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-all"
                       title="Delete exam"
                     >
@@ -328,7 +395,7 @@ export function Gradebook({ classId, user }: GradebookProps) {
                     Avg {student.avg !== null ? student.avg.toFixed(1) : "—"}
                   </p>
                 </div>
-                {exams.map((exam) => {
+                {examsList.map((exam) => {
                   const draft = getDraft(exam._id, student.email);
                   return (
                     <div key={exam._id} className="px-2 py-2 bg-white border border-slate-100 rounded-md">
@@ -352,7 +419,9 @@ export function Gradebook({ classId, user }: GradebookProps) {
                           ))}
                         </select>
                         <button
-                          onClick={() => handleSaveGrade(exam._id, student.email)}
+                          onClick={() => {
+                            void handleSaveGrade(exam._id, student.email);
+                          }}
                           className="ml-auto w-8 h-8 rounded-md border border-slate-200 flex items-center justify-center text-slate-400 hover:text-emerald-600 hover:border-emerald-200 transition-all"
                           title="Save grade"
                         >
@@ -403,12 +472,14 @@ export function Gradebook({ classId, user }: GradebookProps) {
                   Cancel
                 </button>
                 <button
-                  onClick={async () => {
-                    if (!newExamName.trim()) return;
-                    await createExam({ classId, name: newExamName.trim(), isVisibleToStudents: newExamVisible });
-                    setNewExamName("");
-                    setNewExamVisible(true);
-                    setIsAddOpen(false);
+                  onClick={() => {
+                    void (async () => {
+                      if (!newExamName.trim()) return;
+                      await createExam({ classId, name: newExamName.trim(), isVisibleToStudents: newExamVisible });
+                      setNewExamName("");
+                      setNewExamVisible(true);
+                      setIsAddOpen(false);
+                    })();
                   }}
                   disabled={!newExamName.trim()}
                   className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-50"

@@ -628,6 +628,7 @@ export const submitAssignment = mutation({
     if (!assignment || assignment.classId !== classId || !assignment.isAssignment) {
       throw new Error("Invalid assignment");
     }
+    const assignmentAny = assignment as any;
 
     const membership = await ctx.db
       .query("classMembers")
@@ -642,6 +643,34 @@ export const submitAssignment = mutation({
     const normalizedContent = content?.trim();
     const normalizedLink = linkUrl?.trim();
     const hasFile = !!storageId;
+
+    const existingSubmissions = await ctx.db
+      .query("submissions")
+      .withIndex("assignment", (q) => q.eq("assignmentId", assignmentId))
+      .filter((q) => q.eq(q.field("studentId"), studentEmail))
+      .collect();
+
+    if (
+      assignmentAny.maxResubmissions !== undefined &&
+      existingSubmissions.length >= assignmentAny.maxResubmissions
+    ) {
+      throw new Error("Resubmission limit reached for this assignment");
+    }
+
+    const extension = await (ctx.db as any)
+      .query("assignmentExtensions")
+      .withIndex("assignment", (q: any) => q.eq("assignmentId", assignmentId))
+      .filter((q: any) => q.eq(q.field("studentId"), studentEmail))
+      .first();
+
+    const effectiveDueDate =
+      extension?.extendedDueDate ??
+      assignmentAny.dueDate;
+    const isLate = !!effectiveDueDate && Date.now() > effectiveDueDate;
+
+    if (isLate && assignmentAny.latePolicy === "block") {
+      throw new Error("This assignment is closed for late submissions");
+    }
 
     if (!normalizedContent && !normalizedLink && !hasFile) {
       throw new Error("Add text, a link, or a file before submitting");
@@ -662,6 +691,7 @@ export const submitAssignment = mutation({
       fileMimeType,
       fileSize,
       submittedAt: Date.now(),
+      isLate,
     });
   },
 });
@@ -755,6 +785,7 @@ export const createForm = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     category: v.union(v.literal("survey"), v.literal("permission"), v.literal("field_trip")),
+    enforceOneResponse: v.optional(v.boolean()),
     questions: v.array(v.object({
       id: v.string(),
       label: v.string(),
@@ -763,7 +794,7 @@ export const createForm = mutation({
       required: v.optional(v.boolean()),
     })),
   },
-  handler: async (ctx, { classId, title, description, category, questions }) => {
+  handler: async (ctx, { classId, title, description, category, questions, enforceOneResponse }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
     if (data.user.role !== "teacher") throw new Error("Only teachers can create forms");
@@ -776,6 +807,7 @@ export const createForm = mutation({
       isOpen: true,
       questions,
       createdAt: Date.now(),
+      enforceOneResponse,
     });
   },
 });
@@ -816,10 +848,36 @@ export const submitForm = mutation({
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
     if (data.user.role !== "student") throw new Error("Only students can submit forms");
+    const studentEmail = data.user.email;
+
+    const form = await ctx.db.get(formId);
+    if (!form || form.classId !== classId) throw new Error("Invalid form");
+    if (!(form as any).isOpen) throw new Error("Form is closed");
+
+    if ((form as any).enforceOneResponse) {
+      const existing = await ctx.db
+        .query("formResponses")
+        .withIndex("form", (q) => q.eq("formId", formId))
+        .filter((q) => q.eq(q.field("studentId"), studentEmail))
+        .first();
+
+      if (existing) throw new Error("You already submitted this form");
+    }
+
+    const answerMap = new Map(answers.map((a) => [a.questionId, a.value]));
+    for (const question of (form as any).questions || []) {
+      if (question.required) {
+        const value = (answerMap.get(question.id) || "").trim();
+        if (!value) {
+          throw new Error(`Missing required response: ${question.label}`);
+        }
+      }
+    }
+
     return await ctx.db.insert("formResponses", {
       formId,
       classId,
-      studentId: data.user.email,
+      studentId: studentEmail,
       answers,
       submittedAt: Date.now(),
     });
@@ -1115,14 +1173,41 @@ export const getLearningPath = query({
 });
 
 export const completeLesson = mutation({
-  args: { lessonId: v.id("lessons") },
-  handler: async (ctx, { lessonId }) => {
+  args: {
+    lessonId: v.id("lessons"),
+    masteryScore: v.optional(v.number()),
+  },
+  handler: async (ctx, { lessonId, masteryScore }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
     const user = data.user;
 
     const lesson = await ctx.db.get(lessonId);
     if (!lesson) throw new Error("Lesson not found");
+    const lessonAny = lesson as any;
+
+    const prerequisiteIds = lessonAny.prerequisiteLessonIds || [];
+    if (prerequisiteIds.length) {
+      const prerequisiteProgress = await Promise.all(
+        prerequisiteIds.map((id: any) =>
+          ctx.db
+            .query("userProgress")
+            .withIndex("user", (q) => q.eq("userId", user.email))
+            .filter((q) => q.eq(q.field("lessonId"), id))
+            .first()
+        )
+      );
+      const blocked = prerequisiteProgress.some((entry) => !entry);
+      if (blocked) throw new Error("Complete prerequisite tasks first");
+    }
+
+    if (
+      lessonAny.masteryThreshold !== undefined &&
+      masteryScore !== undefined &&
+      masteryScore < lessonAny.masteryThreshold
+    ) {
+      throw new Error(`Mastery threshold not met (${lessonAny.masteryThreshold}%)`);
+    }
 
     const existingProgress = await ctx.db
       .query("userProgress")
@@ -1139,9 +1224,37 @@ export const completeLesson = mutation({
     });
 
     const newXp = (user.xp || 0) + lesson.xpAward;
-    await ctx.db.patch(user._id, { xp: newXp });
+    const now = Date.now();
+    const lastActive = (user as any).lastActiveAt as number | undefined;
+    const sameDay = (a: number, b: number) => {
+      const da = new Date(a);
+      const db = new Date(b);
+      return (
+        da.getUTCFullYear() === db.getUTCFullYear() &&
+        da.getUTCMonth() === db.getUTCMonth() &&
+        da.getUTCDate() === db.getUTCDate()
+      );
+    };
+    let streak = (user as any).streak || 0;
+    if (!lastActive) {
+      streak = 1;
+    } else if (sameDay(now, lastActive)) {
+      streak = streak;
+    } else if (now - lastActive <= 1000 * 60 * 60 * 48) {
+      streak += 1;
+    } else {
+      streak = 1;
+    }
+    const level = Math.max(1, Math.floor(newXp / 100) + 1);
 
-    return { xpAwarded: lesson.xpAward, totalXp: newXp };
+    await ctx.db.patch(user._id, {
+      xp: newXp,
+      streak,
+      lastActiveAt: now,
+      level,
+    } as any);
+
+    return { xpAwarded: lesson.xpAward, totalXp: newXp, streak, level };
   },
 });
 
@@ -1210,6 +1323,8 @@ export const adminCreateLesson = mutation({
       front: v.string(),
       back: v.string(),
     }))),
+    prerequisiteLessonIds: v.optional(v.array(v.id("lessons"))),
+    masteryThreshold: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const data = await getCurrentUserData(ctx);
@@ -1335,6 +1450,10 @@ export const createQuiz = mutation({
       question: v.string(),
       options: v.array(v.string()),
       correctOption: v.number(),
+      questionType: v.optional(v.union(v.literal("mcq"), v.literal("short"), v.literal("numeric"), v.literal("true_false"))),
+      correctAnswerText: v.optional(v.string()),
+      correctNumber: v.optional(v.number()),
+      explanation: v.optional(v.string()),
     })),
     xpValue: v.number(),
     xpPerQuestion: v.optional(v.number()),
@@ -1342,6 +1461,10 @@ export const createQuiz = mutation({
     gradesPublic: v.optional(v.boolean()),
     singleAttempt: v.optional(v.boolean()),
     dueDate: v.optional(v.number()),
+    randomizeQuestions: v.optional(v.boolean()),
+    randomizeOptions: v.optional(v.boolean()),
+    maxAttempts: v.optional(v.number()),
+    showExplanations: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const data = await getCurrentUserData(ctx);
@@ -1359,6 +1482,10 @@ export const createQuiz = mutation({
       gradesPublic: args.gradesPublic,
       singleAttempt: args.singleAttempt,
       dueDate: args.dueDate,
+      randomizeQuestions: args.randomizeQuestions,
+      randomizeOptions: args.randomizeOptions,
+      maxAttempts: args.maxAttempts,
+      showExplanations: args.showExplanations,
     });
   },
 });
@@ -1366,6 +1493,7 @@ export const createQuiz = mutation({
 export const getStreamEntries = query({
   args: { classId: v.id("classes") },
   handler: async (ctx, { classId }) => {
+    const now = Date.now();
     const files = await ctx.db
       .query("files")
       .withIndex("class", (q) => q.eq("classId", classId))
@@ -1388,13 +1516,19 @@ export const getStreamEntries = query({
 
     // Map entries to a common format
     const fileEntries = files.map(f => ({ ...f, entryType: "file" }));
-    const announcementEntries = announcements.map(a => ({ ...a, entryType: "announcement" }));
+    const announcementEntries = announcements
+      .filter((a: any) => !a.scheduledFor || a.scheduledFor <= now)
+      .map(a => ({ ...a, entryType: "announcement" }));
     const linkEntries = links.map(l => ({ ...l, entryType: "link" }));
     const quizEntries = quizzes.map(q => ({ ...q, entryType: "quiz" }));
 
     // Merge and sort by creation time (most recent first)
     const combined = [...fileEntries, ...announcementEntries, ...linkEntries, ...quizEntries];
-    return combined.sort((a, b) => b._creationTime - a._creationTime);
+    return combined.sort((a: any, b: any) => {
+      const pinnedDelta = Number(!!b.pinned) - Number(!!a.pinned);
+      if (pinnedDelta !== 0) return pinnedDelta;
+      return b._creationTime - a._creationTime;
+    });
   },
 });
 

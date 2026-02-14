@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -37,9 +37,22 @@ type TaskFlashcard = {
 type TaskStage = "pretext" | "data" | "flashcards" | "quiz" | "complete";
 
 const MAX_OPTIONS = 6;
+const getTaskStageSequence = (task: any): TaskStage[] => {
+  if (!task) return [];
+  const sequence: TaskStage[] = [];
+  const pretext = (task.pretext || task.content || "").trim();
+  const dataContext = (task.dataContext || "").trim();
+  if (pretext) sequence.push("pretext");
+  if (dataContext) sequence.push("data");
+  if ((task.flashcards || []).length) sequence.push("flashcards");
+  if ((task.questions || []).length) sequence.push("quiz");
+  sequence.push("complete");
+  return sequence.length ? sequence : ["complete"];
+};
 
 export function LearningPath({ classId, user }: LearningPathProps) {
   const learningPath = useQuery(api.myFunctions.getLearningPath, { classId }) || [];
+  const recommendations = useQuery((api as any).featureFunctions.getLessonRecommendations, { classId }) || [];
   const completeLesson = useMutation(api.myFunctions.completeLesson);
   const createLesson = useMutation(api.myFunctions.adminCreateLesson);
   const clearLearningPath = useMutation(api.myFunctions.adminClearLearningPath);
@@ -51,6 +64,8 @@ export function LearningPath({ classId, user }: LearningPathProps) {
   const [taskPretext, setTaskPretext] = useState("");
   const [taskData, setTaskData] = useState("");
   const [taskXp, setTaskXp] = useState(20);
+  const [taskPrerequisiteLessonIds, setTaskPrerequisiteLessonIds] = useState<string[]>([]);
+  const [taskMasteryThreshold, setTaskMasteryThreshold] = useState(70);
   const [taskQuestions, setTaskQuestions] = useState<TaskQuestion[]>([]);
   const [taskFlashcards, setTaskFlashcards] = useState<TaskFlashcard[]>([]);
 
@@ -62,34 +77,13 @@ export function LearningPath({ classId, user }: LearningPathProps) {
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
   const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [masteryError, setMasteryError] = useState("");
 
   const mascotName = "Pagey";
 
   const totalTasks = learningPath.length;
   const completedTasks = learningPath.filter((task: any) => task.isCompleted).length;
-  const stageSequence = useMemo<TaskStage[]>(() => {
-    if (!selectedTask) return [];
-    const sequence: TaskStage[] = [];
-    const pretext = (selectedTask.pretext || selectedTask.content || "").trim();
-    const dataContext = (selectedTask.dataContext || "").trim();
-    if (pretext) sequence.push("pretext");
-    if (dataContext) sequence.push("data");
-    if ((selectedTask.flashcards || []).length) sequence.push("flashcards");
-    if ((selectedTask.questions || []).length) sequence.push("quiz");
-    sequence.push("complete");
-    return sequence.length ? sequence : ["complete"];
-  }, [selectedTask]);
-
-  useEffect(() => {
-    if (!selectedTask) return;
-    setTaskStage(stageSequence[0] || "complete");
-    setFlashcardIndex(0);
-    setFlashcardFlipped(false);
-    setQuestionIndex(0);
-    setSelectedOptionIndex(null);
-    setShowAnswer(false);
-    setCorrectAnswers(0);
-  }, [selectedTask?._id, stageSequence]);
+  const stageSequence = useMemo<TaskStage[]>(() => getTaskStageSequence(selectedTask), [selectedTask]);
 
   const normalizeQuestions = (questions: TaskQuestion[]) =>
     questions
@@ -129,18 +123,24 @@ export function LearningPath({ classId, user }: LearningPathProps) {
       order: taskOrder,
       questions: normalizeQuestions(taskQuestions),
       flashcards: normalizeFlashcards(taskFlashcards),
+      prerequisiteLessonIds: taskPrerequisiteLessonIds.length ? (taskPrerequisiteLessonIds as any) : undefined,
+      masteryThreshold: Number.isFinite(taskMasteryThreshold) ? taskMasteryThreshold : undefined,
     });
     setIsAddingTask(false);
     setTaskTitle("");
     setTaskPretext("");
     setTaskData("");
     setTaskXp(20);
+    setTaskPrerequisiteLessonIds([]);
+    setTaskMasteryThreshold(70);
     setTaskQuestions([]);
     setTaskFlashcards([]);
   };
 
   const handleComplete = async (lessonId: Id<"lessons">) => {
-    await completeLesson({ lessonId });
+    const totalQuestions = selectedTask?.questions?.length || 0;
+    const masteryScore = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : undefined;
+    await completeLesson({ lessonId, masteryScore });
   };
 
   const handleDeleteTask = async (lessonId: Id<"lessons">) => {
@@ -150,13 +150,23 @@ export function LearningPath({ classId, user }: LearningPathProps) {
 
   const openTask = (task: any, isLocked: boolean) => {
     if (isLocked) return;
-    setSelectedTask({
+    const hydratedTask = {
       ...task,
       pretext: task.pretext || task.content || "",
       dataContext: task.dataContext || "",
       questions: task.questions || [],
       flashcards: task.flashcards || [],
-    });
+    };
+    const nextSequence = getTaskStageSequence(hydratedTask);
+    setSelectedTask(hydratedTask);
+    setTaskStage(nextSequence[0] || "complete");
+    setFlashcardIndex(0);
+    setFlashcardFlipped(false);
+    setQuestionIndex(0);
+    setSelectedOptionIndex(null);
+    setShowAnswer(false);
+    setCorrectAnswers(0);
+    setMasteryError("");
   };
 
   const stageIndex = stageSequence.indexOf(taskStage);
@@ -208,6 +218,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
 
   const isTaskReady =
     taskTitle.trim().length > 0 && (taskPretext.trim().length > 0 || taskData.trim().length > 0);
+  const completedTaskIds = new Set(learningPath.filter((task: any) => task.isCompleted).map((task: any) => task._id));
   const firstIncompleteIndex = learningPath.findIndex((task: any) => !task.isCompleted);
   const overallProgress = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -216,9 +227,11 @@ export function LearningPath({ classId, user }: LearningPathProps) {
       {user.role === "teacher" && (
         <div className="flex justify-end gap-2">
           <button
-            onClick={async () => {
-              if (!window.confirm("Delete all tasks and progress for this class?")) return;
-              await clearLearningPath({ classId });
+            onClick={() => {
+              void (async () => {
+                if (!window.confirm("Delete all tasks and progress for this class?")) return;
+                await clearLearningPath({ classId });
+              })();
             }}
             className="bg-slate-100 text-slate-600 px-4 py-2.5 rounded-xl font-black shadow-sm hover:bg-slate-200 transition-all text-[11px] tracking-[0.2em] uppercase"
           >
@@ -250,7 +263,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
             </div>
 
             <div className="grid gap-5">
-              <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+              <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr]">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Task Title</label>
                   <input
@@ -270,7 +283,44 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                     onChange={(e) => setTaskXp(Number(e.target.value))}
                   />
                 </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Mastery %</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white outline-none transition-all font-bold text-slate-700 text-sm"
+                    value={taskMasteryThreshold}
+                    onChange={(e) => setTaskMasteryThreshold(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                  />
+                </div>
               </div>
+              {learningPath.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Prerequisites</label>
+                  <div className="flex flex-wrap gap-2">
+                    {learningPath.map((task: any) => {
+                      const active = taskPrerequisiteLessonIds.includes(task._id);
+                      return (
+                        <button
+                          key={`prereq-${task._id}`}
+                          type="button"
+                          onClick={() =>
+                            setTaskPrerequisiteLessonIds((prev) =>
+                              prev.includes(task._id) ? prev.filter((id) => id !== task._id) : [...prev, task._id]
+                            )
+                          }
+                          className={`px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest ${
+                            active ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-500"
+                          }`}
+                        >
+                          {task.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Pretext</label>
                 <textarea
@@ -484,7 +534,9 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                 Cancel
               </button>
               <button
-                onClick={handleAddTask}
+                onClick={() => {
+                  void handleAddTask();
+                }}
                 disabled={!isTaskReady}
                 className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-black shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-[0.2em] disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -523,13 +575,31 @@ export function LearningPath({ classId, user }: LearningPathProps) {
             </div>
           </div>
 
+          {user.role === "student" && recommendations.length > 0 && (
+            <div className="premium-card p-4 space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Recommended Next Steps</p>
+              <div className="flex flex-wrap gap-2">
+                {recommendations.slice(0, 4).map((item: any) => (
+                  <span
+                    key={item.lesson._id}
+                    className={`px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest ${item.unlocked ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}
+                  >
+                    {item.lesson.title}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="relative">
             <div className="absolute left-6 top-6 bottom-6 w-[6px] bg-emerald-100/50 rounded-full" />
             <div className="space-y-6 pl-16">
               {learningPath.map((task: any, idx: number) => {
                 const isCompleted = !!task.isCompleted;
                 const isCurrent = firstIncompleteIndex === idx;
-                const isLocked = firstIncompleteIndex !== -1 && idx > firstIncompleteIndex;
+                const prerequisiteIds = task.prerequisiteLessonIds || [];
+                const blockedByPrerequisite = prerequisiteIds.some((id: any) => !completedTaskIds.has(id));
+                const isLocked = blockedByPrerequisite || (firstIncompleteIndex !== -1 && idx > firstIncompleteIndex);
                 const hasQuestions = (task.questions || []).length > 0;
                 const hasFlashcards = (task.flashcards || []).length > 0;
                 const cardMood = isLocked ? "sleepy" : isCompleted ? "happy" : "curious";
@@ -588,7 +658,17 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                               <Flame className="w-3 h-3" /> data brief
                             </span>
                           )}
+                          {task.masteryThreshold !== undefined && (
+                            <span className="text-slate-400 flex items-center gap-1">
+                              <Star className="w-3 h-3" /> mastery {task.masteryThreshold}%
+                            </span>
+                          )}
                         </div>
+                        {blockedByPrerequisite && (
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                            Complete prerequisite task(s) first
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         {isCompleted && (
@@ -598,7 +678,9 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                         )}
                         {user.role === "teacher" && (
                           <button
-                            onClick={() => handleDeleteTask(task._id)}
+                            onClick={() => {
+                              void handleDeleteTask(task._id);
+                            }}
                             className="px-3 py-2 rounded-xl border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-all flex items-center gap-1"
                           >
                             <Trash2 className="w-4 h-4" /> Delete
@@ -848,12 +930,27 @@ export function LearningPath({ classId, user }: LearningPathProps) {
                         ? `Score: ${correctAnswers}/${selectedTask.questions.length}`
                         : "Great work."}
                     </p>
+                    {selectedTask.masteryThreshold !== undefined && selectedTask.questions?.length > 0 && (
+                      <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                        Required mastery: {selectedTask.masteryThreshold}% • Your score: {Math.round((correctAnswers / selectedTask.questions.length) * 100)}%
+                      </p>
+                    )}
+                    {masteryError && (
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-rose-600">{masteryError}</p>
+                    )}
                     {user.role === "student" && (
                       <button
                         disabled={selectedTask.isCompleted}
-                        onClick={async () => {
-                          await handleComplete(selectedTask._id);
-                          setSelectedTask(null);
+                        onClick={() => {
+                          void (async () => {
+                            try {
+                              await handleComplete(selectedTask._id);
+                              setSelectedTask(null);
+                            } catch (error) {
+                              const message = error instanceof Error ? error.message : "Could not finish task";
+                              setMasteryError(message);
+                            }
+                          })();
                         }}
                         className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-50"
                       >

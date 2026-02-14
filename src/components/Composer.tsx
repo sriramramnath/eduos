@@ -243,7 +243,7 @@ export function Composer({ classId, user }: ComposerProps) {
         : !!assignmentDueDate && !!text.trim();
 
     return (
-        <div className={`premium-container transition-all duration-300 ${isExpanded ? "p-6" : "p-4"} mb-8`}>
+        <div className={`premium-container rounded-2xl transition-all duration-300 border-slate-200/80 shadow-lg shadow-slate-900/5 ${isExpanded ? "p-6" : "p-4"} mb-8`}>
             {!isExpanded ? (
                 <div
                     onClick={() => setIsExpanded(true)}
@@ -251,10 +251,10 @@ export function Composer({ classId, user }: ComposerProps) {
                 >
                     <img
                         src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
-                        className="w-10 h-10 rounded-md border border-slate-200"
+                        className="w-11 h-11 rounded-xl border border-slate-200"
                         alt={user.name}
                     />
-                    <div className="flex-1 bg-slate-50 border border-slate-200 rounded-md px-4 py-2 text-slate-400 font-medium text-sm group-hover:border-emerald-500/30 transition-all">
+                    <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-500 font-medium text-base group-hover:border-emerald-500/30 transition-all">
                         Post an update or assignment...
                     </div>
                 </div>
@@ -264,15 +264,15 @@ export function Composer({ classId, user }: ComposerProps) {
                         <div className="flex items-center gap-3">
                             <img
                                 src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
-                                className="w-8 h-8 rounded-md border border-slate-200"
+                                className="w-9 h-9 rounded-xl border border-slate-200"
                                 alt={user.name}
                             />
                             <span className="text-sm font-bold text-slate-700">{user.name}</span>
                         </div>
 
-                        <div className="relative grid grid-cols-2 w-full sm:w-60 p-1 rounded-md border border-slate-200 bg-slate-100">
+                        <div className="relative grid grid-cols-2 w-full sm:w-64 p-1 rounded-xl border border-slate-200 bg-slate-100">
                             <div
-                                className="absolute top-1 bottom-1 rounded-md bg-white shadow-sm transition-all duration-300"
+                                className="absolute top-1 bottom-1 rounded-lg bg-white shadow-sm transition-all duration-300"
                                 style={{
                                     left: composeMode === "post" ? "0.25rem" : "calc(50% + 0.125rem)",
                                     width: "calc(50% - 0.375rem)",
@@ -283,7 +283,7 @@ export function Composer({ classId, user }: ComposerProps) {
                                     setComposeMode("post");
                                     setAssignmentError("");
                                 }}
-                                className={`relative z-10 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${composeMode === "post" ? "text-slate-900" : "text-slate-500"
+                                className={`relative z-10 py-1.5 text-[11px] font-semibold tracking-wide transition-colors ${composeMode === "post" ? "text-slate-900" : "text-slate-500"
                                     }`}
                             >
                                 Post
@@ -293,7 +293,7 @@ export function Composer({ classId, user }: ComposerProps) {
                                     setComposeMode("assignment");
                                     setAssignmentError("");
                                 }}
-                                className={`relative z-10 py-1.5 text-[10px] font-black uppercase tracking-widest transition-colors ${composeMode === "assignment" ? "text-rose-600" : "text-slate-500"
+                                className={`relative z-10 py-1.5 text-[11px] font-semibold tracking-wide transition-colors ${composeMode === "assignment" ? "text-rose-600" : "text-slate-500"
                                     }`}
                             >
                                 Assignment
@@ -308,14 +308,14 @@ export function Composer({ classId, user }: ComposerProps) {
                             if (assignmentError) setAssignmentError("");
                         }}
                         placeholder={composeMode === "assignment" ? "Write assignment instructions or questions..." : "What's on your mind?"}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-md p-4 text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500/50 min-h-[120px] resize-none scrollbar-hide"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-base font-medium text-slate-900 focus:outline-none focus:border-emerald-500/50 min-h-[132px] resize-none scrollbar-hide"
                         autoFocus
                     />
 
                     {composeMode === "assignment" && (
-                        <div className="space-y-3 rounded-md border border-rose-100 bg-rose-50/40 p-3">
+                        <div className="space-y-3 rounded-xl border border-rose-100 bg-rose-50/50 p-3">
                             <div>
-                                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Due Date</label>
+                                <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] mb-1.5">Due Date</label>
                                 <input
                                     type="datetime-local"
                                     value={assignmentDueDate}
@@ -323,20 +323,20 @@ export function Composer({ classId, user }: ComposerProps) {
                                         setAssignmentDueDate(e.target.value);
                                         if (assignmentError) setAssignmentError("");
                                     }}
-                                    className="w-full sm:w-72 bg-white border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500/50"
+                                    className="w-full sm:w-72 bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-emerald-500/50"
                                 />
                             </div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <p className="text-[11px] font-semibold text-slate-500">
                                 Students can upload response files or submit response links.
                             </p>
                             {assignmentError && (
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-rose-500">{assignmentError}</p>
+                                <p className="text-[11px] font-semibold tracking-wide text-rose-500">{assignmentError}</p>
                             )}
                         </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-2">
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pt-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <input
                                 type="file"
                                 className="hidden"
@@ -347,28 +347,28 @@ export function Composer({ classId, user }: ComposerProps) {
                             />
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-bold text-[11px] uppercase tracking-wider"
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-semibold text-[12px] tracking-wide"
                             >
                                 <Paperclip className="w-4 h-4 text-emerald-500" />
                                 File
                             </button>
                             <button
                                 onClick={() => setIsQuizModalOpen(true)}
-                                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-bold text-[11px] uppercase tracking-wider"
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-semibold text-[12px] tracking-wide"
                             >
                                 <GraduationCap className="w-4 h-4 text-emerald-500" />
                                 Quiz
                             </button>
                             <button
                                 onClick={() => openLinkModal()}
-                                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-bold text-[11px] uppercase tracking-wider"
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-semibold text-[12px] tracking-wide"
                             >
                                 <LinkIcon className="w-4 h-4 text-emerald-500" />
                                 Link
                             </button>
                             <button
                                 onClick={() => openLinkModal({ whiteboard: true })}
-                                className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-bold text-[11px] uppercase tracking-wider"
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-600 transition-all border border-transparent hover:border-slate-200 font-semibold text-[12px] tracking-wide"
                             >
                                 <Presentation className="w-4 h-4 text-violet-500" />
                                 Whiteboard
@@ -378,7 +378,7 @@ export function Composer({ classId, user }: ComposerProps) {
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={collapseComposer}
-                                className="px-4 py-2 rounded-md text-slate-400 font-bold text-[11px] uppercase tracking-wider hover:bg-slate-50 transition-all"
+                                className="px-4 py-2 rounded-lg text-slate-500 font-semibold text-[12px] tracking-wide hover:bg-slate-50 transition-all"
                             >
                                 Cancel
                             </button>
@@ -387,7 +387,7 @@ export function Composer({ classId, user }: ComposerProps) {
                                     void handleSubmit();
                                 }}
                                 disabled={!canSubmit || isPosting}
-                                className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2 rounded-md font-bold text-[11px] uppercase tracking-wider shadow-sm shadow-emerald-600/20 hover:bg-emerald-700 transition-all disabled:opacity-50"
+                                className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-semibold text-[12px] tracking-wide shadow-sm shadow-emerald-600/20 hover:bg-emerald-700 transition-all disabled:opacity-50"
                             >
                                 {isPosting ? (
                                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

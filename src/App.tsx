@@ -103,7 +103,9 @@ function DashboardContent({
                 <SettingsPage
                   user={user}
                   onBack={() => setActivePage("dashboard")}
-                  onSignOut={() => signOut()}
+                  onSignOut={() => {
+                    void signOut();
+                  }}
                   theme={theme}
                   onThemeChange={onThemeChange}
                 />
@@ -152,9 +154,12 @@ function OnboardingFlow({ user }: { user: any }) {
   return (
     <div className="h-screen bg-slate-50 flex items-center justify-center p-6 relative overflow-hidden">
       <div className="max-w-4xl w-full grid md:grid-cols-2 gap-6 animate-in fade-in zoom-in-95 duration-500">
-        <div
-          className="bg-white p-10 rounded-md border border-slate-200 flex flex-col justify-center items-center text-center space-y-6 group hover:border-emerald-500 transition-all cursor-pointer relative"
-          onClick={() => handleRoleSelect("teacher")}
+        <button
+          type="button"
+          className="bg-white p-10 rounded-md border border-slate-200 flex flex-col justify-center items-center text-center space-y-6 group hover:border-emerald-500 transition-all cursor-pointer relative w-full"
+          onClick={() => {
+            void handleRoleSelect("teacher");
+          }}
         >
           <div className="w-16 h-16 bg-emerald-50 rounded-md flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all">
             <Presentation className="w-8 h-8" />
@@ -163,12 +168,17 @@ function OnboardingFlow({ user }: { user: any }) {
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Teacher</h2>
             <p className="text-slate-500 font-medium leading-relaxed text-sm">Manage classrooms and guide students.</p>
           </div>
-          <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-md font-bold text-[10px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all">Select Role</button>
-        </div>
+          <span className="bg-emerald-600 text-white px-6 py-2.5 rounded-md font-bold text-[10px] uppercase tracking-widest shadow-sm">
+            Select Role
+          </span>
+        </button>
 
-        <div
-          className="bg-white p-10 rounded-md border border-slate-200 flex flex-col justify-center items-center text-center space-y-6 group hover:border-emerald-500 transition-all cursor-pointer relative"
-          onClick={() => handleRoleSelect("student")}
+        <button
+          type="button"
+          className="bg-white p-10 rounded-md border border-slate-200 flex flex-col justify-center items-center text-center space-y-6 group hover:border-emerald-500 transition-all cursor-pointer relative w-full"
+          onClick={() => {
+            void handleRoleSelect("student");
+          }}
         >
           <div className="w-16 h-16 bg-emerald-50 rounded-md flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-all">
             <GraduationCap className="w-8 h-8" />
@@ -177,8 +187,10 @@ function OnboardingFlow({ user }: { user: any }) {
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Student</h2>
             <p className="text-slate-500 font-medium leading-relaxed text-sm">Join classes and complete paths.</p>
           </div>
-          <button className="bg-emerald-600 text-white px-6 py-2.5 rounded-md font-bold text-[10px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all">Select Role</button>
-        </div>
+          <span className="bg-emerald-600 text-white px-6 py-2.5 rounded-md font-bold text-[10px] uppercase tracking-widest shadow-sm">
+            Select Role
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -208,7 +220,9 @@ function LandingPage() {
 
         <div className="pt-4">
           <button
-            onClick={() => signIn("google")}
+            onClick={() => {
+              void signIn("google");
+            }}
             className="px-8 py-4 bg-emerald-600 text-white rounded-md font-bold text-lg shadow-sm hover:bg-emerald-700 transition-all flex items-center gap-3 mx-auto"
           >
             <Rocket className="w-6 h-6" /> Start with Google

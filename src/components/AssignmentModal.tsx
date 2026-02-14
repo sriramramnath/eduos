@@ -15,15 +15,36 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
   const [instructions, setInstructions] = useState(file.instructions || "");
   const [questionPromptsText, setQuestionPromptsText] = useState((file.questionPrompts || []).join("\n"));
   const [selectedOutcomes, setSelectedOutcomes] = useState<string[]>((file.outcomeIds as any) || []);
+  const [latePolicy, setLatePolicy] = useState<"allow" | "penalty" | "block">((file as any).latePolicy || "allow");
+  const [maxResubmissions, setMaxResubmissions] = useState<number>((file as any).maxResubmissions ?? 3);
+  const [allowComments, setAllowComments] = useState<boolean>((file as any).allowComments ?? true);
+  const [rubricText, setRubricText] = useState(
+    ((file as any).rubric || [])
+      .map((item: any) => `${item.criterion}|${item.maxPoints}`)
+      .join("\n")
+  );
   const outcomes = useQuery(api.myFunctions.getOutcomes, { classId: file.classId }) || [];
   const updateAssignmentDetails = useMutation(api.myFunctions.updateAssignmentDetails);
+  const setAssignmentPolicy = useMutation((api as any).featureFunctions.setAssignmentPolicy);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const questionPrompts = questionPromptsText
       .split("\n")
-      .map((prompt) => prompt.trim())
+      .map((prompt: string) => prompt.trim())
       .filter(Boolean);
+    const rubric = rubricText
+      .split("\n")
+      .map((line: string) => line.trim())
+      .filter(Boolean)
+      .map((line: string) => {
+        const [criterion, points] = line.split("|");
+        return {
+          criterion: (criterion || "").trim(),
+          maxPoints: Number(points || 0),
+        };
+      })
+      .filter((item: { criterion: string; maxPoints: number }) => item.criterion && Number.isFinite(item.maxPoints) && item.maxPoints > 0);
 
     void (async () => {
       await updateAssignmentDetails({
@@ -33,13 +54,20 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
         questionPrompts: questionPrompts.length ? questionPrompts : undefined,
         outcomeIds: selectedOutcomes.length ? (selectedOutcomes as any) : undefined,
       });
+      await setAssignmentPolicy({
+        fileId: file._id,
+        latePolicy,
+        maxResubmissions,
+        allowComments,
+        rubric: rubric.length ? rubric : undefined,
+      });
       onClose();
     })();
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in duration-200">
-      <div className="bg-white rounded-md p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
+      <div className="bg-white rounded-xl p-6 md:p-8 max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
         <div className="text-center space-y-1">
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Assignment</h2>
           <p className="text-slate-500 font-medium text-xs truncate">{file.name}</p>
@@ -51,6 +79,9 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
             <button
               type="button"
               onClick={() => setTimed(!timed)}
+              role="switch"
+              aria-checked={timed}
+              aria-label="Timed session"
               className={`w-12 h-6 rounded-full transition-all relative ${timed ? 'bg-emerald-500' : 'bg-slate-200'}`}
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${timed ? 'left-6.5' : 'left-0.5'}`} />
@@ -59,7 +90,7 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
 
           {timed && (
             <div className="animate-in slide-in-from-top-1 duration-200">
-              <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
                 Duration (min)
               </label>
               <input
@@ -73,7 +104,7 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
           )}
 
           <div>
-            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
               Due Date
             </label>
             <input
@@ -84,8 +115,48 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
             />
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
+                Late Policy
+              </label>
+              <select
+                value={latePolicy}
+                onChange={(e) => setLatePolicy(e.target.value as any)}
+                className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
+              >
+                <option value="allow">Allow late</option>
+                <option value="penalty">Allow with penalty</option>
+                <option value="block">Block late</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
+                Max Resubmissions
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={maxResubmissions}
+                onChange={(e) => setMaxResubmissions(Math.max(1, Number(e.target.value) || 1))}
+                className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-bold text-slate-700 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-md border border-slate-200">
+            <span className="font-bold text-slate-700 text-sm">Allow file comments</span>
+            <button
+              type="button"
+              onClick={() => setAllowComments((prev) => !prev)}
+              className={`w-12 h-6 rounded-full transition-all relative ${allowComments ? 'bg-emerald-500' : 'bg-slate-200'}`}
+            >
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all ${allowComments ? 'left-6.5' : 'left-0.5'}`} />
+            </button>
+          </div>
+
           <div>
-            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
               Instructions
             </label>
             <textarea
@@ -97,7 +168,7 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
           </div>
 
           <div>
-            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
               Questions (One Per Line)
             </label>
             <textarea
@@ -109,7 +180,19 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
           </div>
 
           <div>
-            <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
+              Rubric (criterion|points per line)
+            </label>
+            <textarea
+              value={rubricText}
+              onChange={(e) => setRubricText(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-md bg-slate-50 border border-slate-200 focus:border-emerald-500 outline-none font-medium text-slate-600 text-sm h-24 resize-y"
+              placeholder={"Argument quality|5\nEvidence use|5\nClarity|3"}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5 ml-1">
               Outcomes
             </label>
             {outcomes.length === 0 ? (
@@ -127,7 +210,7 @@ export function AssignmentModal({ file, onClose }: AssignmentModalProps) {
                           prev.includes(o._id) ? prev.filter((id) => id !== o._id) : [...prev, o._id]
                         );
                       }}
-                      className={`px-3 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest ${active ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
+                      className={`px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-[0.08em] ${active ? "border-emerald-500 text-emerald-700 bg-emerald-50" : "border-slate-200 text-slate-500"}`}
                     >
                       {o.code}
                     </button>

@@ -47,6 +47,12 @@ body {
   --app-text-muted: #475569;
 }
 
+:where(button, [href], input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--app-accent-weak);
+}
+
 [data-theme="moon"] {
   color-scheme: dark;
   --app-bg-top: #020617;
@@ -280,6 +286,17 @@ body {
   box-shadow: 0 28px 55px -30px rgba(56, 189, 248, 0.45) !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 h1,
 h2,
 h3,
@@ -291,11 +308,11 @@ h6 {
 
 @layer utilities {
   .premium-container {
-    @apply bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden transition-all duration-200;
+    @apply bg-white rounded-xl shadow-[0_12px_28px_-18px_rgba(15,23,42,0.4)] border border-slate-200/80 overflow-hidden transition-all duration-200;
   }
 
   .premium-card {
-    @apply bg-white rounded-md border border-slate-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:border-emerald-500/30 hover:shadow-[0_8px_24px_-8px_rgba(16,185,129,0.15)] transition-all duration-300;
+    @apply bg-white rounded-xl border border-slate-200/80 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.35)] hover:border-emerald-500/30 hover:shadow-[0_18px_34px_-18px_rgba(16,185,129,0.28)] transition-all duration-300;
   }
 
   .pill-tab {

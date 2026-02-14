@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -9,8 +9,10 @@ import { Gradebook } from "./Gradebook";
 import { LearningPath } from "./LearningPath";
 import { Scoreboard } from "./Scoreboard";
 import { FileViewer } from "./FileViewer";
-import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus, Crown, User } from "lucide-react";
+import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus, Crown, User, CalendarDays, Send } from "lucide-react";
 import { Composer } from "./Composer";
+import { CalendarView } from "./CalendarView";
+import { MessagesView } from "./MessagesView";
 
 interface ClassViewProps {
     classId: Id<"classes">;
@@ -19,7 +21,7 @@ interface ClassViewProps {
     onOpenSettings: () => void;
 }
 
-type ClassTab = "stream" | "classwork" | "people" | "grades" | "path" | "leaderboard";
+type ClassTab = "stream" | "classwork" | "people" | "grades" | "path" | "leaderboard" | "calendar" | "messages";
 
 export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewProps) {
     const [activeTab, setActiveTab] = useState<ClassTab>("stream");
@@ -28,9 +30,28 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
 
     if (!classData) return <div className="p-10 text-slate-400 font-bold animate-pulse text-center">Loading Class...</div>;
 
-    const teacherTabs: ClassTab[] = ["stream", "classwork", "people", "grades", "path", "leaderboard"];
-    const studentTabs: ClassTab[] = ["stream", "classwork", "people", "path", "leaderboard"];
+    const teacherTabs: ClassTab[] = ["stream", "classwork", "people", "grades", "path", "leaderboard", "calendar", "messages"];
+    const studentTabs: ClassTab[] = ["stream", "classwork", "people", "path", "leaderboard", "calendar", "messages"];
     const tabs = user.role === "teacher" ? teacherTabs : studentTabs;
+    const getDesktopTabLabel = (tab: ClassTab) => {
+        if (tab === "grades") return "Analytics";
+        if (tab === "classwork") return "Classwork";
+        if (tab === "leaderboard") return "Leaderboard";
+        if (tab === "calendar") return "Calendar";
+        if (tab === "messages") return "Messages";
+        if (tab === "stream") return "Stream";
+        if (tab === "people") return "People";
+        if (tab === "path") return "Path";
+        return tab;
+    };
+    const getMobileTabLabel = (tab: ClassTab) => {
+        if (tab === "classwork") return "work";
+        if (tab === "leaderboard") return "board";
+        if (tab === "grades") return "grades";
+        if (tab === "messages") return "chat";
+        if (tab === "calendar") return "cal";
+        return tab;
+    };
 
     return (
         <div className="animate-in fade-in duration-500 px-3 sm:px-4 md:px-8 pt-6 flex flex-col items-center">
@@ -41,13 +62,14 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                         onClick={onBack}
                         className="w-10 h-10 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center text-slate-400 shadow-sm group shrink-0"
                         title="Back to Hub"
+                        aria-label="Back to classes"
                     >
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
                     </button>
 
                     {/* Centered Navigation Tabs */}
                     <div
-                        className="absolute left-1/2 -translate-x-1/2 p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:grid w-full max-w-2xl"
+                        className="absolute left-1/2 -translate-x-1/2 p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:grid w-full max-w-4xl"
                         style={{
                             ["--tab-index" as any]: tabs.indexOf(activeTab as any),
                             gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
@@ -67,7 +89,7 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`relative z-10 py-1.5 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
+                                className={`relative z-10 py-1.5 text-[11px] font-bold tracking-[0.03em] flex items-center justify-center gap-1.5 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
                                     }`}
                             >
                                 {tab === "stream" && <MessageSquare className="w-3 h-3" />}
@@ -81,7 +103,9 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                                 )}
                                 {tab === "path" && <Map className="w-3 h-3" />}
                                 {tab === "leaderboard" && <Trophy className="w-3 h-3" />}
-                                <span className="hidden lg:inline">{tab === "grades" ? "analytics" : tab}</span>
+                                {tab === "calendar" && <CalendarDays className="w-3 h-3" />}
+                                {tab === "messages" && <Send className="w-3 h-3" />}
+                                <span className="hidden xl:inline">{getDesktopTabLabel(tab)}</span>
                             </button>
                         ))}
                     </div>
@@ -100,6 +124,26 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                     </div>
                 </div>
             </nav>
+
+            <div className="md:hidden sticky top-[max(env(safe-area-inset-top),0px)] z-40 w-full mb-4">
+                <div className="w-full max-w-6xl mx-auto rounded-xl border border-slate-200 bg-white/85 backdrop-blur-xl px-3 py-2 shadow-sm flex items-center gap-3">
+                    <button
+                        onClick={onBack}
+                        className="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-center shrink-0"
+                        aria-label="Back to classes"
+                        title="Back to classes"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-slate-900">{classData.name}</p>
+                        <p className="text-xs font-medium text-slate-500">Class view</p>
+                    </div>
+                    <div className="px-2.5 py-1.5 rounded-lg border border-emerald-200/50 bg-emerald-50 text-emerald-700 text-xs font-bold">
+                        {user.xp || 0} XP
+                    </div>
+                </div>
+            </div>
 
             {/* Mobile Bottom Navigation */}
             <div className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-3 right-3 sm:left-6 sm:right-6 h-14 bg-white/80 backdrop-blur-xl border border-slate-200/50 rounded-2xl flex items-center z-50 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
@@ -131,7 +175,9 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                                 )}
                                 {tab === "path" && <Map className="w-5 h-5 transition-transform group-active:scale-95" />}
                                 {tab === "leaderboard" && <Trophy className="w-5 h-5 transition-transform group-active:scale-95" />}
-                                <span className="text-[7px] font-black uppercase tracking-tighter opacity-80">{tab === "grades" ? "analytics" : tab}</span>
+                                {tab === "calendar" && <CalendarDays className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                {tab === "messages" && <Send className="w-5 h-5 transition-transform group-active:scale-95" />}
+                                <span className="text-[10px] font-semibold tracking-wide leading-none opacity-90 capitalize">{getMobileTabLabel(tab)}</span>
                             </button>
                         ))}
                     </div>
@@ -140,6 +186,7 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                     onClick={onOpenSettings}
                     className="mx-2 w-10 h-10 rounded-xl border border-slate-200 bg-white/90 shadow-sm flex items-center justify-center"
                     title="Settings"
+                    aria-label="Open settings"
                 >
                     <User className="w-5 h-5 text-slate-500" />
                 </button>
@@ -151,7 +198,9 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                 {activeTab === "people" && <PeopleView classId={classId} user={user} />}
                 {activeTab === "grades" && <Gradebook classId={classId} user={user} />}
                 {activeTab === "path" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><LearningPath classId={classId} user={user} /></div>}
-                {activeTab === "leaderboard" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><Scoreboard classId={classId} /></div>}
+                {activeTab === "leaderboard" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><Scoreboard classId={classId} user={user} /></div>}
+                {activeTab === "calendar" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><CalendarView classId={classId} user={user} /></div>}
+                {activeTab === "messages" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><MessagesView classId={classId} user={user} /></div>}
             </main>
 
             {selectedFile && (
@@ -179,12 +228,14 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     const activeForms = forms.filter((form: any) => form.isOpen);
     const submitForm = useMutation(api.myFunctions.submitForm);
     const setFormActive = useMutation(api.myFunctions.setFormActive);
-    const [activeForm, setActiveForm] = useState<any | null>(null);
+    const [activeForm, setActiveForm] = useState<any>(null);
     const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
     const [mood, setMood] = useState("Focused");
     const [goal, setGoal] = useState("");
     const [blocker, setBlocker] = useState("");
     const [submittingReflection, setSubmittingReflection] = useState(false);
+    const featureApi = (api as any).featureFunctions;
+    const pinStreamEntry = useMutation(featureApi.pinStreamEntry);
 
 
     const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,7 +262,7 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Banner */}
-            <div className={`h-48 md:h-60 lg:h-[18rem] w-screen relative left-1/2 right-1/2 -mx-[50vw] -mt-32 md:-mt-36 lg:-mt-40 p-6 md:p-10 flex flex-col justify-end text-white overflow-hidden shadow-2xl border-y border-slate-200/20 group z-0 ${!bannerUrl ? 'bg-slate-900' : ''}`}>
+            <div className={`h-52 md:h-64 lg:h-72 w-full relative -mt-2 p-6 md:p-10 flex flex-col justify-end text-white overflow-hidden rounded-3xl shadow-2xl border border-slate-200/20 group z-0 ${!bannerUrl ? 'bg-slate-900' : ''}`}>
                 {bannerUrl && (
                     <img src={bannerUrl} alt="Class Banner" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60" />
                 )}
@@ -225,17 +276,17 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                     </>
                 )}
 
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/25 to-transparent"></div>
 
                 <div className="relative z-10 flex items-end justify-between">
                     <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-3xl font-bold tracking-tight drop-shadow-sm">{classData.name}</h2>
-                            <div className="px-2 py-0.5 bg-white/20 backdrop-blur-md rounded border border-white/20 text-[10px] font-black tracking-widest">
+                        <div className="flex items-center gap-3 mb-2">
+                            <h2 className="text-3xl md:text-4xl font-bold tracking-tight drop-shadow-sm">{classData.name}</h2>
+                            <div className="px-2.5 py-1 bg-white/20 backdrop-blur-md rounded-lg border border-white/20 text-[11px] font-semibold tracking-[0.08em]">
                                 {classData.code}
                             </div>
                         </div>
-                        <p className="text-emerald-400 font-bold uppercase tracking-widest text-[9px]">{classData.description || "Academic Year 2026"}</p>
+                        <p className="text-emerald-300 font-semibold uppercase tracking-[0.1em] text-[11px]">{classData.description || "Academic Year 2026"}</p>
                     </div>
 
                     {user.role === "teacher" && (
@@ -245,12 +296,14 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                 id="banner-upload"
                                 className="hidden"
                                 accept="image/*"
-                                onChange={handleBannerUpload}
+                                onChange={(event) => {
+                                    void handleBannerUpload(event);
+                                }}
                                 disabled={isUploadingBanner}
                             />
                             <label
                                 htmlFor="banner-upload"
-                                className={`flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer border border-white/20 ${isUploadingBanner ? 'opacity-50' : ''}`}
+                                className={`flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-3.5 py-2 rounded-lg text-[11px] font-semibold uppercase tracking-[0.08em] transition-all cursor-pointer border border-white/20 ${isUploadingBanner ? 'opacity-50' : ''}`}
                             >
                                 {isUploadingBanner ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
                                 {isUploadingBanner ? "Wait..." : "Banner"}
@@ -305,12 +358,17 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Private to your teacher</p>
                                 <button
                                     disabled={submittingReflection}
-                                    onClick={async () => {
-                                        setSubmittingReflection(true);
-                                        await createReflection({ classId: classData._id, mood, goal, blocker });
-                                        setGoal("");
-                                        setBlocker("");
-                                        setSubmittingReflection(false);
+                                    onClick={() => {
+                                        void (async () => {
+                                            setSubmittingReflection(true);
+                                            try {
+                                                await createReflection({ classId: classData._id, mood, goal, blocker });
+                                                setGoal("");
+                                                setBlocker("");
+                                            } finally {
+                                                setSubmittingReflection(false);
+                                            }
+                                        })();
                                     }}
                                     className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
                                 >
@@ -353,7 +411,9 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                                 )}
                                                 {user.role === "teacher" && (
                                                     <button
-                                                        onClick={() => setFormActive({ formId: form._id, isOpen: false })}
+                                                        onClick={() => {
+                                                            void setFormActive({ formId: form._id, isOpen: false });
+                                                        }}
                                                         className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
                                                     >
                                                         Deactivate
@@ -368,139 +428,172 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                     )}
 
                     {entries.length === 0 ? (
-                        <div className="text-center py-20 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
-                            <div className="text-slate-300 mb-3 flex justify-center">
+                        <div className="text-center py-20 rounded-3xl bg-slate-50/50 border border-dashed border-slate-300/80">
+                            <div className="text-emerald-300 mb-3 flex justify-center">
                                 <MessageSquare className="w-10 h-10" />
                             </div>
-                            <p className="text-slate-400 font-medium text-sm italic">The stream is empty. Start the conversation!</p>
+                            <p className="text-slate-500 font-medium text-base">No activity yet. Post the first update to get started.</p>
                         </div>
                     ) : (
                         entries.map((entry: any) => (
                             <div key={entry._id} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 {entry.entryType === "announcement" && (
-                                    <div className="premium-card p-6 space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-md bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-                                                <MessageSquare className="w-5 h-5" />
+                                    <div className="premium-card p-6 rounded-2xl space-y-4 shadow-lg shadow-slate-900/5">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+                                                    <MessageSquare className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-slate-500 leading-none mb-1">
+                                                        {entry.authorEmail.split("@")[0]} posted an update
+                                                    </p>
+                                                    <p className="text-[11px] font-medium text-slate-400">
+                                                        {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
-                                                    Post by {entry.authorEmail.split("@")[0]}
-                                                </p>
-                                                <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                                                    {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                                                </p>
-                                            </div>
+                                            {user.role === "teacher" && (
+                                                <button
+                                                    onClick={() => {
+                                                        void pinStreamEntry({
+                                                            classId: classData._id,
+                                                            entryType: "announcement",
+                                                            entryId: entry._id,
+                                                            pinned: !entry.pinned,
+                                                        });
+                                                    }}
+                                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${entry.pinned ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                                                >
+                                                    {entry.pinned ? "Pinned" : "Pin"}
+                                                </button>
+                                            )}
                                         </div>
-                                        <p className="text-sm font-medium text-slate-700 leading-relaxed pl-1 whitespace-pre-wrap">
+                                        <p className="text-[15px] font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
                                             {entry.content}
                                         </p>
+                                        <div className="pt-2 border-t border-slate-100">
+                                            <EntryEngagementBar classId={classData._id} entry={entry} user={user} />
+                                        </div>
                                     </div>
                                 )}
 
                                 {entry.entryType === "quiz" && (
-                                    <div className="premium-card overflow-hidden group">
-                                        <div className="bg-emerald-600 p-4 flex items-center justify-between text-white">
+                                    <div className="premium-card overflow-hidden group rounded-2xl shadow-lg shadow-slate-900/5">
+                                        <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-5 flex items-center justify-between text-white">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-md flex items-center justify-center">
+                                                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
                                                     <GraduationCap className="w-5 h-5" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[9px] font-black uppercase tracking-widest opacity-70">Interactive Quiz</p>
+                                                    <p className="text-[11px] font-semibold tracking-[0.08em] opacity-75 uppercase">Interactive Quiz</p>
                                                     <h4 className="text-sm font-bold tracking-tight">{entry.title}</h4>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-[9px] font-black uppercase tracking-widest opacity-70">Award</p>
+                                                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] opacity-75">Award</p>
                                                 <p className="text-xs font-black">{entry.xpValue} XP</p>
                                             </div>
                                         </div>
-                                        <div className="p-6 bg-white flex items-center justify-between">
+                                        <div className="p-6 bg-white flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-3 text-slate-400">
                                                 <CheckCircle2 className="w-4 h-4" />
-                                                <span className="text-[11px] font-bold uppercase tracking-widest">{entry.questions.length} Questions</span>
+                                                <span className="text-[12px] font-semibold tracking-wide">{entry.questions.length} questions</span>
                                             </div>
                                             <button
                                                 onClick={() => setActiveQuiz(entry)}
-                                                className="bg-slate-900 text-white px-6 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md shadow-slate-900/10"
+                                                className="bg-slate-900 text-white px-5 py-2.5 rounded-lg font-semibold text-[12px] tracking-wide hover:bg-emerald-600 transition-all shadow-md shadow-slate-900/10"
                                             >
                                                 Start Quiz
                                             </button>
+                                        </div>
+                                        <div className="px-6 py-4 border-t border-slate-100">
+                                            <EntryEngagementBar classId={classData._id} entry={entry} user={user} />
                                         </div>
                                     </div>
                                 )}
 
                                 {entry.entryType === "file" && (
-                                    <div
-                                        onClick={() => onFileSelect(entry)}
-                                        className="premium-card p-4 flex items-start gap-4 group hover:border-emerald-500/30 transition-all cursor-pointer"
-                                    >
-                                        <div className="w-10 h-10 bg-slate-50 rounded-md flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                                            <FileText className="w-5 h-5" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                                                        {entry.uploadedBy.split("@")[0]} {entry.isAssignment ? "posted homework" : "shared a resource"}
-                                                    </p>
-                                                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
-                                                        {entry.name}
-                                                    </h4>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                                                            {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                    <>
+                                        <div
+                                            onClick={() => onFileSelect(entry)}
+                                            className="premium-card p-5 rounded-2xl flex items-start gap-4 group hover:border-emerald-500/30 transition-all cursor-pointer shadow-lg shadow-slate-900/5"
+                                        >
+                                            <div className="w-11 h-11 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                                                <FileText className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-xs font-semibold text-slate-500 mb-1">
+                                                            {entry.uploadedBy.split("@")[0]} {entry.isAssignment ? "posted homework" : "shared a resource"}
                                                         </p>
-                                                        {entry.isAssignment && (
-                                                            <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2 py-0.5 rounded border border-rose-100">Assignment</span>
-                                                        )}
-                                                        {entry.isAssignment && entry.dueDate && (
-                                                            <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
-                                                                Due {new Date(entry.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                                            </span>
-                                                        )}
+                                                        <h4 className="text-base font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
+                                                            {entry.name}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <p className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                                                                {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                                            </p>
+                                                            {entry.isAssignment && (
+                                                                <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">Assignment</span>
+                                                            )}
+                                                            {entry.isAssignment && entry.dueDate && (
+                                                                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
+                                                                    Due {new Date(entry.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                    <button className="w-8 h-8 rounded-md hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors">
+                                                        <MoreVertical className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
-                                                <button className="w-8 h-8 rounded-md hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors">
-                                                    <MoreVertical className="w-3.5 h-3.5" />
-                                                </button>
                                             </div>
                                         </div>
-                                    </div>
+                                        <div className="px-2 pt-2">
+                                            <EntryEngagementBar classId={classData._id} entry={entry} user={user} />
+                                        </div>
+                                    </>
                                 )}
 
                                 {entry.entryType === "link" && (
-                                    <div
-                                        onClick={() => window.open(entry.url, "_blank")}
-                                        className="premium-card p-4 flex items-start gap-4 group hover:border-emerald-500/30 transition-all cursor-pointer"
-                                    >
-                                        <div className={`w-10 h-10 rounded-md flex items-center justify-center border transition-all ${entry.isWhiteboard ? "bg-violet-50 text-violet-600 border-violet-100 group-hover:bg-violet-600 group-hover:text-white" : "bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white"}`}>
-                                            {entry.isWhiteboard ? <Presentation className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                                                        {entry.createdBy.split("@")[0]} shared a {entry.isWhiteboard ? "whiteboard" : "link"}
-                                                    </p>
-                                                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
-                                                        {entry.title}
-                                                    </h4>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                                                            {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                    <>
+                                        <div
+                                            onClick={() => window.open(entry.url, "_blank")}
+                                            className="premium-card p-5 rounded-2xl flex items-start gap-4 group hover:border-emerald-500/30 transition-all cursor-pointer shadow-lg shadow-slate-900/5"
+                                        >
+                                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center border transition-all ${entry.isWhiteboard ? "bg-violet-50 text-violet-600 border-violet-100 group-hover:bg-violet-600 group-hover:text-white" : "bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white"}`}>
+                                                {entry.isWhiteboard ? <Presentation className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-xs font-semibold text-slate-500 mb-1">
+                                                            {entry.createdBy.split("@")[0]} shared a {entry.isWhiteboard ? "whiteboard" : "link"}
                                                         </p>
-                                                        <span className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 flex items-center gap-1">
-                                                            Open <ExternalLink className="w-3 h-3" />
-                                                        </span>
+                                                        <h4 className="text-base font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
+                                                            {entry.title}
+                                                        </h4>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <p className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                                                                {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                                            </p>
+                                                            <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 flex items-center gap-1">
+                                                                Open <ExternalLink className="w-3 h-3" />
+                                                            </span>
+                                                        </div>
                                                     </div>
+                                                    <button className="w-8 h-8 rounded-md hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors">
+                                                        <MoreVertical className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
-                                                <button className="w-8 h-8 rounded-md hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors">
-                                                    <MoreVertical className="w-3.5 h-3.5" />
-                                                </button>
                                             </div>
                                         </div>
-                                    </div>
+                                        <div className="px-2 pt-2">
+                                            <EntryEngagementBar classId={classData._id} entry={entry} user={user} />
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         ))
@@ -588,13 +681,20 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                 Cancel
                             </button>
                             <button
-                                onClick={async () => {
-                                    await submitForm({
-                                        formId: activeForm._id,
-                                        classId: classData._id,
-                                        answers: Object.entries(formAnswers).map(([questionId, value]) => ({ questionId, value })),
-                                    });
-                                    setActiveForm(null);
+                                onClick={() => {
+                                    void (async () => {
+                                        const missingRequired = (activeForm.questions || []).filter((q: any) => q.required && !(formAnswers[q.id] || "").trim());
+                                        if (missingRequired.length > 0) {
+                                            window.alert(`Please answer required question: ${missingRequired[0].label}`);
+                                            return;
+                                        }
+                                        await submitForm({
+                                            formId: activeForm._id,
+                                            classId: classData._id,
+                                            answers: Object.entries(formAnswers).map(([questionId, value]) => ({ questionId, value })),
+                                        });
+                                        setActiveForm(null);
+                                    })();
                                 }}
                                 className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
                             >
@@ -608,24 +708,169 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     );
 }
 
+function EntryEngagementBar({ classId, entry, user: _user }: { classId: Id<"classes">; entry: any; user: any }) {
+    const featureApi = (api as any).featureFunctions;
+    const comments = useQuery(featureApi.getStreamComments, {
+        classId,
+        entryType: entry.entryType,
+        entryId: String(entry._id),
+    }) || [];
+
+    const addStreamComment = useMutation(featureApi.addStreamComment);
+
+    const [openComments, setOpenComments] = useState(false);
+    const [draftComment, setDraftComment] = useState("");
+
+    const submitComment = async () => {
+        const content = draftComment.trim();
+        if (!content) return;
+        await addStreamComment({
+            classId,
+            entryType: entry.entryType,
+            entryId: String(entry._id),
+            content,
+        });
+        setDraftComment("");
+        setOpenComments(true);
+    };
+
+    return (
+        <div className="space-y-3" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-slate-500">
+                    {comments.length === 0 ? "No comments yet" : `${comments.length} comment${comments.length === 1 ? "" : "s"}`}
+                </p>
+                <button
+                    onClick={() => setOpenComments((prev) => !prev)}
+                    className="text-xs font-semibold tracking-wide text-slate-500 hover:text-slate-700"
+                >
+                    {openComments ? "Hide comments" : "Comments"} ({comments.length})
+                </button>
+            </div>
+
+            {openComments && (
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                    <div className="space-y-1 max-h-40 overflow-auto">
+                        {comments.length === 0 && (
+                            <p className="text-xs text-slate-400 font-medium">No comments yet.</p>
+                        )}
+                        {comments.map((comment: any) => (
+                            <div key={comment._id} className="bg-white border border-slate-200 rounded-lg px-3 py-2.5">
+                                <p className="text-[11px] font-semibold text-slate-500">{comment.authorEmail?.split("@")[0]}</p>
+                                <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{comment.content}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            value={draftComment}
+                            onChange={(event) => setDraftComment(event.target.value)}
+                            placeholder="Add comment"
+                            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700"
+                        />
+                        <button
+                            onClick={() => {
+                                void submitComment();
+                            }}
+                            disabled={!draftComment.trim()}
+                            className="px-3.5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-semibold tracking-wide hover:bg-slate-800 disabled:opacity-50"
+                        >
+                            Post
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => void; onComplete: (score: number) => void }) {
     const [currentStep, setCurrentStep] = useState(0);
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
+    const [typedAnswer, setTypedAnswer] = useState("");
     const [score, setScore] = useState(0);
     const [isFinished, setIsFinished] = useState(false);
     const [allowRetake, setAllowRetake] = useState(false);
     const [xpAwarded, setXpAwarded] = useState<number | null>(null);
+    const [submissionError, setSubmissionError] = useState("");
 
     // Timer state
     const [timerActive, setTimerActive] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState(quiz.timeLimitMinutes ? quiz.timeLimitMinutes * 60 : 0);
     const [timerStarted, setTimerStarted] = useState(false);
+    const preparedQuestions = useMemo(() => {
+        const hashString = (value: string) => {
+            let hash = 0;
+            for (let idx = 0; idx < value.length; idx += 1) {
+                hash = (hash * 31 + value.charCodeAt(idx)) >>> 0;
+            }
+            return hash;
+        };
+        const deterministicShuffle = <T,>(
+            items: T[],
+            seed: string,
+            keyFor: (item: T, index: number) => string
+        ) =>
+            [...items]
+                .map((item, index) => ({
+                    item,
+                    rank: hashString(`${seed}:${keyFor(item, index)}:${index}`),
+                }))
+                .sort((a, b) => a.rank - b.rank)
+                .map((entry) => entry.item);
+
+        const seed = String(quiz._id || "quiz");
+        let questions = [...(quiz.questions || [])];
+        if (quiz.randomizeOptions) {
+            questions = questions.map((question: any, questionIndex: number) => {
+                if (!Array.isArray(question.options) || question.options.length === 0) return question;
+                const original = question.options.map((option: string, index: number) => ({ option, index }));
+                const shuffled = deterministicShuffle<{ option: string; index: number }>(
+                    original,
+                    `${seed}:options:${questionIndex}`,
+                    (entry: { option: string; index: number }, index: number) => `${entry.option}:${entry.index}:${index}`
+                );
+                return {
+                    ...question,
+                    options: shuffled.map((entry: { option: string; index: number }) => entry.option),
+                    correctOption: shuffled.findIndex((entry: { option: string; index: number }) => entry.index === question.correctOption),
+                };
+            });
+        }
+        if (quiz.randomizeQuestions) {
+            questions = deterministicShuffle(
+                questions,
+                `${seed}:questions`,
+                (question: any, index) => `${question.question || ""}:${question.correctOption ?? ""}:${index}`
+            );
+        }
+        return questions;
+    }, [quiz._id, quiz.questions, quiz.randomizeOptions, quiz.randomizeQuestions]);
 
     // XP calculation
     const xpPerCorrect = quiz.xpPerQuestion || 5;
 
-    const completeQuizMutation = useMutation(api.myFunctions.completeQuiz);
-    const hasSubmitted = useQuery(api.myFunctions.hasSubmittedQuiz, { quizId: quiz._id });
+    const featureApi = (api as any).featureFunctions;
+    const completeQuizMutation = useMutation(featureApi.completeAdvancedQuiz);
+    const attemptInfo = useQuery(featureApi.getQuizAttemptInfo, { quizId: quiz._id });
+    const hasSubmitted = (attemptInfo?.attempts || 0) > 0;
+    const attemptsLeft = quiz.maxAttempts ? Math.max(0, quiz.maxAttempts - (attemptInfo?.attempts || 0)) : null;
+
+    const handleAutoSubmit = useCallback(async () => {
+        setIsFinished(true);
+        setSubmissionError("");
+        try {
+            const result = await completeQuizMutation({
+                quizId: quiz._id,
+                score,
+                totalQuestions: preparedQuestions.length
+            });
+            setXpAwarded(result?.xpAwarded ?? 0);
+        } catch (err) {
+            console.error("Auto-submit failed:", err);
+            setSubmissionError("Could not auto-submit. Try again.");
+        }
+    }, [completeQuizMutation, preparedQuestions.length, quiz._id, score]);
 
     // Timer effect
     useEffect(() => {
@@ -635,7 +880,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
             setTimeRemaining(prev => {
                 if (prev <= 1) {
                     clearInterval(interval);
-                    handleAutoSubmit();
+                    void handleAutoSubmit();
                     return 0;
                 }
                 return prev - 1;
@@ -643,45 +888,43 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [timerActive, timeRemaining]);
-
-    const handleAutoSubmit = async () => {
-        setIsFinished(true);
-        try {
-            const result = await completeQuizMutation({
-                quizId: quiz._id,
-                score,
-                totalQuestions: quiz.questions.length
-            });
-            setXpAwarded(result?.xpAwarded ?? 0);
-        } catch (err) {
-            console.error("Auto-submit failed:", err);
-        }
-    };
+    }, [handleAutoSubmit, quiz.timeLimitMinutes, timerActive, timeRemaining]);
 
     const handleNext = async () => {
-        const isLastQuestion = currentStep === quiz.questions.length - 1;
-        const newScore = selectedOption === quiz.questions[currentStep].correctOption ? score + 1 : score;
+        const isLastQuestion = currentStep === preparedQuestions.length - 1;
+        const activeQuestion = preparedQuestions[currentStep];
+        const questionType = activeQuestion.questionType || "mcq";
+        const normalizedTyped = typedAnswer.trim();
+        const isCorrect =
+            questionType === "short"
+                ? normalizedTyped.toLowerCase() === String(activeQuestion.correctAnswerText || "").trim().toLowerCase()
+                : questionType === "numeric"
+                    ? normalizedTyped !== "" && Number(normalizedTyped) === Number(activeQuestion.correctNumber)
+                    : selectedOption === activeQuestion.correctOption;
+        const newScore = isCorrect ? score + 1 : score;
 
-        if (selectedOption === quiz.questions[currentStep].correctOption) {
+        if (isCorrect) {
             setScore(newScore);
         }
 
         if (!isLastQuestion) {
             setCurrentStep(currentStep + 1);
             setSelectedOption(null);
+            setTypedAnswer("");
         } else {
             setIsFinished(true);
             setTimerActive(false);
+            setSubmissionError("");
             try {
                 const result = await completeQuizMutation({
                     quizId: quiz._id,
                     score: newScore,
-                    totalQuestions: quiz.questions.length
+                    totalQuestions: preparedQuestions.length
                 });
                 setXpAwarded(result?.xpAwarded ?? 0);
             } catch (err) {
                 console.error("Failed to submit quiz:", err);
+                setSubmissionError("Quiz submission failed. Check attempts/due date.");
             }
         }
     };
@@ -693,7 +936,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
     };
 
     // Loading state for submission check
-    if (quiz.singleAttempt && hasSubmitted === undefined) {
+    if (attemptInfo === undefined) {
         return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 animate-in zoom-in-95">
@@ -705,7 +948,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
     }
 
     // Already completed: allow a retake but no XP awarded
-    if (hasSubmitted && !isFinished && !allowRetake) {
+    if (quiz.singleAttempt && hasSubmitted && !isFinished && !allowRetake) {
         return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-10 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
@@ -729,6 +972,23 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
         );
     }
 
+    if (!quiz.singleAttempt && quiz.maxAttempts && attemptsLeft === 0 && !isFinished) {
+        return (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-10 text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                    <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center text-rose-600 mx-auto text-2xl">⛔</div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">Attempts Exhausted</h3>
+                        <p className="text-slate-500 font-medium text-sm">You reached the maximum number of attempts for this quiz.</p>
+                    </div>
+                    <button onClick={onClose} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-800 transition-all">
+                        Close
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // Timer start screen (if timed quiz)
     if (quiz.timeLimitMinutes && !timerStarted) {
         return (
@@ -737,7 +997,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto text-2xl">⏱️</div>
                     <div>
                         <h3 className="text-xl font-bold text-slate-900 mb-2">{quiz.title}</h3>
-                        <p className="text-slate-500 font-medium text-sm">This is a timed quiz. You have <strong>{quiz.timeLimitMinutes} minutes</strong> to complete {quiz.questions.length} questions.</p>
+                        <p className="text-slate-500 font-medium text-sm">This is a timed quiz. You have <strong>{quiz.timeLimitMinutes} minutes</strong> to complete {preparedQuestions.length} questions.</p>
                     </div>
                     <div className="flex gap-3">
                         <button onClick={onClose} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">
@@ -759,8 +1019,8 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
                     <>
                         <div className="bg-emerald-600 p-6 flex items-center justify-between text-white">
                             <div>
-                                <h3 className="font-bold tracking-tight">{quiz.title}</h3>
-                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Question {currentStep + 1} of {quiz.questions.length}</p>
+                        <h3 className="font-bold tracking-tight">{quiz.title}</h3>
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Question {currentStep + 1} of {preparedQuestions.length}</p>
                             </div>
                             <div className="flex items-center gap-3">
                                 {quiz.timeLimitMinutes && (
@@ -779,34 +1039,57 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
                                     Retake mode: no XP awarded.
                                 </div>
                             )}
+                                {submissionError && (
+                                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[11px] font-bold text-rose-700 uppercase tracking-widest">
+                                        {submissionError}
+                                    </div>
+                                )}
                             <h4 className="text-lg font-bold text-slate-900 leading-tight">
-                                {quiz.questions[currentStep].question}
+                                {preparedQuestions[currentStep].question}
                             </h4>
-                            <div className="space-y-3">
-                                {quiz.questions[currentStep].options.map((option: string, i: number) => (
-                                    <button
-                                        key={i}
-                                        onClick={() => setSelectedOption(i)}
-                                        className={`w-full p-4 rounded-xl border-2 text-left transition-all font-bold text-sm ${selectedOption === i
-                                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm"
-                                            : "border-slate-100 hover:border-slate-200 text-slate-600"
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] ${selectedOption === i ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-200 text-slate-300"}`}>
-                                                {String.fromCharCode(65 + i)}
+                            {(preparedQuestions[currentStep].questionType === "short" || preparedQuestions[currentStep].questionType === "numeric") ? (
+                                <div className="space-y-3">
+                                    <input
+                                        type={preparedQuestions[currentStep].questionType === "numeric" ? "number" : "text"}
+                                        value={typedAnswer}
+                                        onChange={(e) => setTypedAnswer(e.target.value)}
+                                        placeholder={preparedQuestions[currentStep].questionType === "numeric" ? "Enter numeric answer" : "Enter short answer"}
+                                        className="w-full p-4 rounded-xl border-2 border-slate-100 text-left transition-all font-bold text-sm text-slate-700 focus:outline-none focus:border-emerald-500"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {preparedQuestions[currentStep].options.map((option: string, i: number) => (
+                                        <button
+                                            key={i}
+                                            onClick={() => setSelectedOption(i)}
+                                            className={`w-full p-4 rounded-xl border-2 text-left transition-all font-bold text-sm ${selectedOption === i
+                                                ? "border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm"
+                                                : "border-slate-100 hover:border-slate-200 text-slate-600"
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] ${selectedOption === i ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-200 text-slate-300"}`}>
+                                                    {String.fromCharCode(65 + i)}
+                                                </div>
+                                                {option}
                                             </div>
-                                            {option}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <button
-                                onClick={handleNext}
-                                disabled={selectedOption === null}
+                                onClick={() => {
+                                    void handleNext();
+                                }}
+                                disabled={
+                                    (preparedQuestions[currentStep].questionType === "short" || preparedQuestions[currentStep].questionType === "numeric")
+                                        ? !typedAnswer.trim()
+                                        : selectedOption === null
+                                }
                                 className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50 shadow-lg shadow-slate-900/10"
                             >
-                                {currentStep === quiz.questions.length - 1 ? "Finish Quiz" : "Next Question"}
+                                {currentStep === preparedQuestions.length - 1 ? "Finish Quiz" : "Next Question"}
                             </button>
                         </div>
                     </>
@@ -817,7 +1100,7 @@ function QuizPlayer({ quiz, onClose, onComplete }: { quiz: any; onClose: () => v
                         </div>
                         <div>
                             <h3 className="text-2xl font-bold text-slate-900 mb-2">Well Done!</h3>
-                            <p className="text-slate-500 font-medium">You scored {score} out of {quiz.questions.length}</p>
+                            <p className="text-slate-500 font-medium">You scored {score} out of {preparedQuestions.length}</p>
                         </div>
                         <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 inline-block px-8">
                             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">XP Earned</p>
@@ -844,6 +1127,8 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
     const createOutcome = useMutation(api.myFunctions.createOutcome);
     const createForm = useMutation(api.myFunctions.createForm);
     const submitForm = useMutation(api.myFunctions.submitForm);
+    const featureApi = (api as any).featureFunctions;
+    const updateFormDefinition = useMutation(featureApi.updateFormDefinition);
 
     const [isOutcomeOpen, setIsOutcomeOpen] = useState(false);
     const [outcomeCode, setOutcomeCode] = useState("");
@@ -855,10 +1140,15 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
     const [formDesc, setFormDesc] = useState("");
     const [formCategory, setFormCategory] = useState<"survey" | "permission" | "field_trip">("survey");
     const [formQuestions, setFormQuestions] = useState<any[]>([]);
-    const [activeForm, setActiveForm] = useState<any | null>(null);
+    const [formEnforceOneResponse, setFormEnforceOneResponse] = useState(true);
+    const [activeForm, setActiveForm] = useState<any>(null);
     const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
     const [responsesFormId, setResponsesFormId] = useState<Id<"forms"> | null>(null);
     const responses = useQuery(api.myFunctions.getFormResponses, responsesFormId ? { formId: responsesFormId } : "skip") || [];
+    const responsesAnalytics = useQuery(
+        featureApi.getFormAnalytics,
+        responsesFormId ? { formId: responsesFormId } : "skip"
+    );
     const newQuestionId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
     const responsesForm = forms.find((f: any) => f._id === responsesFormId);
     const getQuestionLabel = (questionId: string) => {
@@ -935,7 +1225,8 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                     {user.role === "teacher" && (
                         <button
                             onClick={() => {
-                                setFormQuestions([{ id: newQuestionId(), label: "Question", type: "short" }]);
+                                setFormQuestions([{ id: newQuestionId(), label: "Question", type: "short", required: false }]);
+                                setFormEnforceOneResponse(true);
                                 setIsFormOpen(true);
                             }}
                             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest shadow-sm hover:bg-emerald-700 transition-all"
@@ -956,6 +1247,16 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{form.category.replace("_", " ")}</p>
                                 <p className="text-sm font-bold text-slate-900">{form.title}</p>
                                 <p className="text-xs text-slate-500">{form.description || "No description"}</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    <span className={`px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase tracking-widest ${form.isOpen ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+                                        {form.isOpen ? "Open" : "Closed"}
+                                    </span>
+                                    {form.enforceOneResponse && (
+                                        <span className="px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[8px] font-bold uppercase tracking-widest text-amber-700">
+                                            One Response
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{form.questions.length} questions</span>
                                     {user.role === "student" ? (
@@ -969,12 +1270,22 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                                             Fill
                                         </button>
                                     ) : (
-                                        <button
-                                            onClick={() => setResponsesFormId(form._id)}
-                                            className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
-                                        >
-                                            Responses
-                                        </button>
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => {
+                                                    void updateFormDefinition({ formId: form._id, isOpen: !form.isOpen });
+                                                }}
+                                                className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                            >
+                                                {form.isOpen ? "Close" : "Reopen"}
+                                            </button>
+                                            <button
+                                                onClick={() => setResponsesFormId(form._id)}
+                                                className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                            >
+                                                Responses
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -1025,13 +1336,15 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                                 Cancel
                             </button>
                             <button
-                                onClick={async () => {
-                                    if (!outcomeCode || !outcomeTitle) return;
-                                    await createOutcome({ classId, code: outcomeCode, title: outcomeTitle, description: outcomeDesc });
-                                    setOutcomeCode("");
-                                    setOutcomeTitle("");
-                                    setOutcomeDesc("");
-                                    setIsOutcomeOpen(false);
+                                onClick={() => {
+                                    void (async () => {
+                                        if (!outcomeCode || !outcomeTitle) return;
+                                        await createOutcome({ classId, code: outcomeCode, title: outcomeTitle, description: outcomeDesc });
+                                        setOutcomeCode("");
+                                        setOutcomeTitle("");
+                                        setOutcomeDesc("");
+                                        setIsOutcomeOpen(false);
+                                    })();
                                 }}
                                 className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
                             >
@@ -1069,6 +1382,15 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                             value={formDesc}
                             onChange={(e) => setFormDesc(e.target.value)}
                         />
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Limit to one response per student</p>
+                            <button
+                                onClick={() => setFormEnforceOneResponse((prev) => !prev)}
+                                className={`w-10 h-5 rounded-full transition-all relative ${formEnforceOneResponse ? "bg-emerald-500" : "bg-slate-300"}`}
+                            >
+                                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${formEnforceOneResponse ? "left-5" : "left-0.5"}`}></div>
+                            </button>
+                        </div>
                         <div className="space-y-3">
                             {formQuestions.map((q, idx) => (
                                 <div key={q.id} className="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
@@ -1102,6 +1424,18 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                                     >
                                         Remove
                                     </button>
+                                    <label className="md:col-span-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!q.required}
+                                            onChange={(e) => {
+                                                const next = [...formQuestions];
+                                                next[idx] = { ...next[idx], required: e.target.checked };
+                                                setFormQuestions(next);
+                                            }}
+                                        />
+                                        Required
+                                    </label>
                                     {["single", "multi"].includes(q.type) && (
                                         <input
                                             value={q.options || ""}
@@ -1119,7 +1453,7 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                         </div>
                         <div className="flex items-center justify-between">
                             <button
-                                onClick={() => setFormQuestions([...formQuestions, { id: newQuestionId(), label: "Question", type: "short" }])}
+                                onClick={() => setFormQuestions([...formQuestions, { id: newQuestionId(), label: "Question", type: "short", required: false }])}
                                 className="px-3 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
                             >
                                 Add Question
@@ -1132,19 +1466,30 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={async () => {
-                                        if (!formTitle || formQuestions.length === 0) return;
-                                        const payload = formQuestions.map((q) => ({
-                                            id: q.id,
-                                            label: q.label,
-                                            type: q.type,
-                                            options: q.options ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
-                                        }));
-                                        await createForm({ classId, title: formTitle, description: formDesc, category: formCategory, questions: payload });
-                                        setFormTitle("");
-                                        setFormDesc("");
-                                        setFormQuestions([]);
-                                        setIsFormOpen(false);
+                                    onClick={() => {
+                                        void (async () => {
+                                            if (!formTitle || formQuestions.length === 0) return;
+                                            const payload = formQuestions.map((q) => ({
+                                                id: q.id,
+                                                label: q.label,
+                                                type: q.type,
+                                                options: q.options ? q.options.split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
+                                                required: !!q.required,
+                                            }));
+                                            await createForm({
+                                                classId,
+                                                title: formTitle,
+                                                description: formDesc,
+                                                category: formCategory,
+                                                questions: payload,
+                                                enforceOneResponse: formEnforceOneResponse,
+                                            } as any);
+                                            setFormTitle("");
+                                            setFormDesc("");
+                                            setFormQuestions([]);
+                                            setFormEnforceOneResponse(true);
+                                            setIsFormOpen(false);
+                                        })();
                                     }}
                                     className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
                                 >
@@ -1225,13 +1570,20 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                                 Cancel
                             </button>
                             <button
-                                onClick={async () => {
-                                    await submitForm({
-                                        formId: activeForm._id,
-                                        classId,
-                                        answers: Object.entries(formAnswers).map(([questionId, value]) => ({ questionId, value })),
-                                    });
-                                    setActiveForm(null);
+                                onClick={() => {
+                                    void (async () => {
+                                        const missingRequired = (activeForm.questions || []).filter((q: any) => q.required && !(formAnswers[q.id] || "").trim());
+                                        if (missingRequired.length > 0) {
+                                            window.alert(`Please answer required question: ${missingRequired[0].label}`);
+                                            return;
+                                        }
+                                        await submitForm({
+                                            formId: activeForm._id,
+                                            classId,
+                                            answers: Object.entries(formAnswers).map(([questionId, value]) => ({ questionId, value })),
+                                        });
+                                        setActiveForm(null);
+                                    })();
                                 }}
                                 className="flex-1 bg-emerald-600 text-white py-2.5 rounded-md font-bold shadow-sm hover:bg-emerald-700 transition-all text-[11px] uppercase tracking-widest"
                             >
@@ -1255,6 +1607,12 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                             </button>
                         </div>
                         <div className="space-y-3 max-h-[50vh] overflow-auto">
+                            {responsesAnalytics && (
+                                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+                                    <span>{responsesAnalytics.totalResponses} responses</span>
+                                    <span>{responsesAnalytics.completionRate}% complete</span>
+                                </div>
+                            )}
                             {responses.length === 0 && (
                                 <p className="text-xs text-slate-400 font-medium">No responses yet.</p>
                             )}
@@ -1282,10 +1640,17 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
     const members = useQuery(api.myFunctions.getClassMembers, { classId }) || [];
     const teacher = useQuery(api.myFunctions.getClassTeacher, { classId });
     const assignments = useQuery(api.myFunctions.getClassFiles, { classId }) || [];
-    const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+    const featureApi = (api as any).featureFunctions;
+    const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [note, setNote] = useState("");
     const [noteLevel, setNoteLevel] = useState<"note" | "concern" | "action">("note");
     const [activeSimilarity, setActiveSimilarity] = useState<{ assignmentId: Id<"files">; studentId: string } | null>(null);
+    const [inviteHours, setInviteHours] = useState(24);
+    const [latestInviteCode, setLatestInviteCode] = useState("");
+    const [compareLeftId, setCompareLeftId] = useState("");
+    const [compareRightId, setCompareRightId] = useState("");
+    const [taskAssignee, setTaskAssignee] = useState("");
+    const [taskDueAt, setTaskDueAt] = useState("");
 
     const timeline = useQuery(
         api.myFunctions.getStudentTimeline,
@@ -1307,16 +1672,41 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
         api.myFunctions.getSimilarityReport,
         activeSimilarity ? { assignmentId: activeSimilarity.assignmentId, studentId: activeSimilarity.studentId } : "skip"
     ) || [];
+    const joinRequests = useQuery(
+        featureApi.getJoinRequests,
+        user.role === "teacher" ? { classId } : "skip"
+    ) || [];
+    const analytics = useQuery(
+        featureApi.getClassAnalyticsOverview,
+        user.role === "teacher" ? { classId } : "skip"
+    );
+    const interventionTasks = useQuery(
+        featureApi.getInterventionTasks,
+        selectedStudent ? { classId, studentId: selectedStudent.email } : { classId }
+    ) || [];
+    const comparedPair = useQuery(
+        featureApi.compareSubmissionPair,
+        compareLeftId && compareRightId ? { leftSubmissionId: compareLeftId, rightSubmissionId: compareRightId } : "skip"
+    );
 
     const recordAttendance = useMutation(api.myFunctions.recordAttendance);
     const addInterventionNote = useMutation(api.myFunctions.addInterventionNote);
     const createNudge = useMutation(api.myFunctions.createNudge);
+    const createClassInvite = useMutation(featureApi.createClassInvite);
+    const reviewJoinRequest = useMutation(featureApi.reviewJoinRequest);
+    const createInterventionTask = useMutation(featureApi.createInterventionTask);
+    const updateInterventionTask = useMutation(featureApi.updateInterventionTask);
 
 
     const getAssignmentName = (assignmentId: string) => {
         const found = assignments.find((a) => a._id === assignmentId);
         return found?.name || "Assignment";
     };
+    const comparisonCandidates = submissions.filter((submission: any) => !!submission.content);
+    const leftSubmission = comparisonCandidates.find((submission: any) => submission._id === compareLeftId);
+    const rightCandidates = leftSubmission
+        ? comparisonCandidates.filter((submission: any) => submission.assignmentId === leftSubmission.assignmentId && submission._id !== leftSubmission._id)
+        : comparisonCandidates;
 
     return (
         <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500 text-left pb-20">
@@ -1344,6 +1734,73 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                             </div>
                         )}
                     </div>
+
+                    {user.role === "teacher" && (
+                        <div className="premium-card p-4 space-y-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Enrollment</h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Invites and join approvals</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={inviteHours}
+                                    onChange={(e) => setInviteHours(Math.max(1, Number(e.target.value) || 1))}
+                                    className="w-24 px-2.5 py-2 rounded-md border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700"
+                                />
+                                <button
+                                    onClick={() => {
+                                        void (async () => {
+                                            const invite = await createClassInvite({ classId, expiresInHours: inviteHours });
+                                            setLatestInviteCode(invite?.code || "");
+                                        })();
+                                    }}
+                                    className="flex-1 px-3 py-2 rounded-md bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                >
+                                    Generate Invite
+                                </button>
+                            </div>
+                            {latestInviteCode && (
+                                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                    <p className="text-[9px] font-bold uppercase tracking-widest text-emerald-700">Latest Invite</p>
+                                    <p className="text-sm font-black text-emerald-800 tracking-[0.15em]">{latestInviteCode}</p>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Join Requests</p>
+                                {joinRequests.length === 0 && (
+                                    <p className="text-xs text-slate-400 font-medium">No pending requests.</p>
+                                )}
+                                {joinRequests
+                                    .filter((request: any) => request.status === "pending")
+                                    .map((request: any) => (
+                                        <div key={request._id} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 space-y-2">
+                                            <p className="text-xs font-bold text-slate-700">{request.student?.name || request.studentId}</p>
+                                            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{request.studentId}</p>
+                                            <div className="flex items-center gap-1.5">
+                                                <button
+                                                    onClick={() => {
+                                                        void reviewJoinRequest({ requestId: request._id, decision: "approved" });
+                                                    }}
+                                                    className="flex-1 px-2 py-1.5 rounded-md border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-widest hover:bg-emerald-50"
+                                                >
+                                                    Approve
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        void reviewJoinRequest({ requestId: request._id, decision: "rejected" });
+                                                    }}
+                                                    className="flex-1 px-2 py-1.5 rounded-md border border-rose-200 text-rose-700 text-[9px] font-bold uppercase tracking-widest hover:bg-rose-50"
+                                                >
+                                                    Reject
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div>
                         <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-6">
@@ -1382,6 +1839,31 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                 </div>
 
                 <div className="lg:col-span-2 space-y-6">
+                    {user.role === "teacher" && analytics && (
+                        <div className="premium-card p-5 grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Students</p>
+                                <p className="text-xl font-black text-slate-900">{analytics.totalStudents}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Assignments</p>
+                                <p className="text-xl font-black text-slate-900">{analytics.totalAssignments}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Submissions</p>
+                                <p className="text-xl font-black text-slate-900">{analytics.totalSubmissions}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Avg XP</p>
+                                <p className="text-xl font-black text-emerald-700">{analytics.averageXp}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">At-Risk</p>
+                                <p className="text-xl font-black text-rose-600">{analytics.atRisk?.length || 0}</p>
+                            </div>
+                        </div>
+                    )}
+
                     {!selectedStudent ? (
                         <div className="premium-card p-10 text-center text-slate-400 font-bold">Select a student to view the unified profile timeline.</div>
                     ) : (
@@ -1401,19 +1883,25 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                                 {user.role === "teacher" && (
                                     <div className="flex gap-2">
                                         <button
-                                            onClick={() => recordAttendance({ classId, studentId: selectedStudent.email, status: "present", date: Date.now() })}
+                                            onClick={() => {
+                                                void recordAttendance({ classId, studentId: selectedStudent.email, status: "present", date: Date.now() });
+                                            }}
                                             className="px-3 py-1.5 rounded-md border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-widest hover:bg-emerald-50"
                                         >
                                             Present
                                         </button>
                                         <button
-                                            onClick={() => recordAttendance({ classId, studentId: selectedStudent.email, status: "tardy", date: Date.now() })}
+                                            onClick={() => {
+                                                void recordAttendance({ classId, studentId: selectedStudent.email, status: "tardy", date: Date.now() });
+                                            }}
                                             className="px-3 py-1.5 rounded-md border border-amber-200 text-amber-700 text-[9px] font-bold uppercase tracking-widest hover:bg-amber-50"
                                         >
                                             Tardy
                                         </button>
                                         <button
-                                            onClick={() => recordAttendance({ classId, studentId: selectedStudent.email, status: "absent", date: Date.now() })}
+                                            onClick={() => {
+                                                void recordAttendance({ classId, studentId: selectedStudent.email, status: "absent", date: Date.now() });
+                                            }}
                                             className="px-3 py-1.5 rounded-md border border-rose-200 text-rose-700 text-[9px] font-bold uppercase tracking-widest hover:bg-rose-50"
                                         >
                                             Absent
@@ -1450,12 +1938,14 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                                                 <span>{a.name}</span>
                                                 {user.role === "teacher" && (
                                                     <button
-                                                        onClick={() => createNudge({
-                                                            classId,
-                                                            studentId: selectedStudent.email,
-                                                            assignmentId: a._id,
-                                                            message: `Reminder: ${a.name} was due ${new Date(a.dueDate).toLocaleDateString()}.`,
-                                                        })}
+                                                        onClick={() => {
+                                                            void createNudge({
+                                                                classId,
+                                                                studentId: selectedStudent.email,
+                                                                assignmentId: a._id,
+                                                                message: `Reminder: ${a.name} was due ${new Date(a.dueDate).toLocaleDateString()}.`,
+                                                            });
+                                                        }}
                                                         className="px-2 py-1 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
                                                     >
                                                         Nudge
@@ -1489,15 +1979,81 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                                     </div>
                                     <div className="flex justify-end">
                                         <button
-                                            onClick={async () => {
-                                                if (!note.trim()) return;
-                                                await addInterventionNote({ classId, studentId: selectedStudent.email, note, level: noteLevel });
-                                                setNote("");
+                                            onClick={() => {
+                                                void (async () => {
+                                                    if (!note.trim()) return;
+                                                    await addInterventionNote({ classId, studentId: selectedStudent.email, note, level: noteLevel });
+                                                    setNote("");
+                                                })();
                                             }}
                                             className="bg-slate-900 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-600 transition-all"
                                         >
                                             Add Note
                                         </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {user.role === "teacher" && (
+                                <div className="premium-card p-6 space-y-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intervention Tasks</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                        <input
+                                            value={taskAssignee}
+                                            onChange={(e) => setTaskAssignee(e.target.value)}
+                                            placeholder="Assign to (email)"
+                                            className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        />
+                                        <input
+                                            type="datetime-local"
+                                            value={taskDueAt}
+                                            onChange={(e) => setTaskDueAt(e.target.value)}
+                                            className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                void (async () => {
+                                                    if (!taskAssignee.trim()) return;
+                                                    await createInterventionTask({
+                                                        classId,
+                                                        studentId: selectedStudent.email,
+                                                        assignedTo: taskAssignee.trim(),
+                                                        dueAt: taskDueAt ? new Date(taskDueAt).getTime() : undefined,
+                                                    });
+                                                    setTaskAssignee("");
+                                                    setTaskDueAt("");
+                                                })();
+                                            }}
+                                            className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                        >
+                                            Assign Task
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {interventionTasks.length === 0 && (
+                                            <p className="text-xs text-slate-400 font-medium">No intervention tasks yet.</p>
+                                        )}
+                                        {interventionTasks.map((task: any) => (
+                                            <div key={task._id} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-700">{task.assignedTo}</p>
+                                                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                                                        {task.dueAt ? `Due ${new Date(task.dueAt).toLocaleString()}` : "No deadline"}
+                                                    </p>
+                                                </div>
+                                                <select
+                                                    value={task.status}
+                                                    onChange={(e) => {
+                                                        void updateInterventionTask({ taskId: task._id, status: e.target.value as any });
+                                                    }}
+                                                    className="px-2 py-1.5 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-600"
+                                                >
+                                                    <option value="open">Open</option>
+                                                    <option value="in_progress">In Progress</option>
+                                                    <option value="done">Done</option>
+                                                </select>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -1527,6 +2083,52 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
 
                             <div className="premium-card p-6 space-y-4">
                                 <h3 className="text-sm font-bold text-slate-900 tracking-tight">Assignment Submissions</h3>
+                                {user.role === "teacher" && submissions.length > 1 && (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                                        <select
+                                            value={compareLeftId}
+                                            onChange={(e) => {
+                                                setCompareLeftId(e.target.value);
+                                                setCompareRightId("");
+                                            }}
+                                            className="px-2.5 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-600"
+                                        >
+                                            <option value="">Compare: submission A</option>
+                                            {comparisonCandidates.map((submission: any) => (
+                                                <option key={submission._id} value={submission._id}>
+                                                    {submission.studentId}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <select
+                                            value={compareRightId}
+                                            onChange={(e) => setCompareRightId(e.target.value)}
+                                            className="px-2.5 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-600"
+                                        >
+                                            <option value="">Compare: submission B</option>
+                                            {rightCandidates.map((submission: any) => (
+                                                <option key={submission._id} value={submission._id}>
+                                                    {submission.studentId}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="px-2.5 py-2 rounded-md border border-slate-200 bg-white text-[10px] font-bold uppercase tracking-widest text-slate-600 flex items-center justify-center">
+                                            {comparedPair ? `${Math.round((comparedPair.score || 0) * 100)}% overlap` : "Select two"}
+                                        </div>
+                                    </div>
+                                )}
+                                {user.role === "teacher" && comparedPair?.overlap?.length > 0 && (
+                                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 space-y-1">
+                                        <p className="text-[9px] font-bold uppercase tracking-widest text-amber-700">Shared phrases</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {comparedPair.overlap.map((chunk: string) => (
+                                                <span key={chunk} className="px-2 py-0.5 rounded-full border border-amber-200 text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-white">
+                                                    {chunk}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 {submissions.length === 0 && (
                                     <p className="text-xs text-slate-400 font-medium">No submissions yet.</p>
                                 )}
