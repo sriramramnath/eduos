@@ -454,6 +454,11 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                                         {entry.isAssignment && (
                                                             <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2 py-0.5 rounded border border-rose-100">Assignment</span>
                                                         )}
+                                                        {entry.isAssignment && entry.dueDate && (
+                                                            <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+                                                                Due {new Date(entry.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <button className="w-8 h-8 rounded-md hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors">

@@ -57,6 +57,9 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
   useEffect(() => {
     if (isOfficeDoc && viewer.current && fileUrl) {
       setIsViewerLoading(true);
+      let active = true;
+      let themeObserver: MutationObserver | null = null;
+
       WebViewer(
         {
           path: "/webviewer/lib",
@@ -75,17 +78,39 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
         },
         viewer.current
       ).then((instance) => {
+        if (!active) return;
         const { documentViewer } = instance.Core;
-        instance.UI.setTheme('light');
+
+        const syncViewerTheme = () => {
+          const appTheme = document.documentElement.getAttribute("data-theme");
+          instance.UI.setTheme(appTheme === "moon" ? "dark" : "light");
+        };
+
+        syncViewerTheme();
+        themeObserver = new MutationObserver(syncViewerTheme);
+        themeObserver.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+
         instance.UI.disableElements(['header']);
 
         documentViewer.addEventListener('documentLoaded', () => {
-          setIsViewerLoading(false);
+          if (active) {
+            setIsViewerLoading(false);
+          }
         });
       }).catch(err => {
         console.error("WebViewer loading failed:", err);
-        setIsViewerLoading(false);
+        if (active) {
+          setIsViewerLoading(false);
+        }
       });
+
+      return () => {
+        active = false;
+        themeObserver?.disconnect();
+      };
     }
   }, [fileUrl, isOfficeDoc, file.name]);
 

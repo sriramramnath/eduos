@@ -7,11 +7,63 @@ import { SettingsPage } from "./components/SettingsPage";
 import { Rocket, GraduationCap, Presentation } from "lucide-react";
 import { BookMascot } from "./components/BookMascot";
 
+type ThemePreference = "device" | "sun" | "moon";
+
+const THEME_COOKIE_NAME = "eduos_theme";
+
+const getThemeCookie = () => {
+  const match = document.cookie.match(new RegExp(`(^| )${THEME_COOKIE_NAME}=([^;]+)`));
+  const value = match ? decodeURIComponent(match[2]) : null;
+  return value === "device" || value === "sun" || value === "moon" ? value : "device";
+};
+
+const setThemeCookie = (theme: ThemePreference, days = 365) => {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${THEME_COOKIE_NAME}=${encodeURIComponent(theme)}; expires=${expires}; path=/; SameSite=Lax`;
+};
+
 export default function App() {
+  const [theme, setTheme] = useState<ThemePreference>(() => {
+    if (typeof document === "undefined") {
+      return "device";
+    }
+    return getThemeCookie();
+  });
+
+  useEffect(() => {
+    const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    const applyTheme = () => {
+      const prefersDark = media ? media.matches : false;
+      const resolvedTheme = theme === "device" ? (prefersDark ? "moon" : "sun") : theme;
+      document.documentElement.setAttribute("data-theme", resolvedTheme);
+      document.documentElement.style.colorScheme = resolvedTheme === "moon" ? "dark" : "light";
+    };
+
+    applyTheme();
+    setThemeCookie(theme);
+
+    if (theme === "device" && media) {
+      if ("addEventListener" in media) {
+        media.addEventListener("change", applyTheme);
+        return () => media.removeEventListener("change", applyTheme);
+      }
+
+      const legacyMedia = media as MediaQueryList & {
+        addListener?: (listener: () => void) => void;
+        removeListener?: (listener: () => void) => void;
+      };
+
+      if (typeof legacyMedia.addListener === "function") {
+        legacyMedia.addListener(applyTheme);
+        return () => legacyMedia.removeListener?.(applyTheme);
+      }
+    }
+  }, [theme]);
+
   return (
     <div className="min-h-screen bg-white relative">
       <Authenticated>
-        <DashboardContent />
+        <DashboardContent theme={theme} onThemeChange={setTheme} />
       </Authenticated>
       <Unauthenticated>
         <LandingPage />
@@ -21,64 +73,18 @@ export default function App() {
 }
 
 
-function DashboardContent() {
+function DashboardContent({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemePreference;
+  onThemeChange: (theme: ThemePreference) => void;
+}) {
   const { signOut } = useAuthActions();
   const user = useQuery(api.myFunctions.getCurrentUser);
   const classes = useQuery(api.myFunctions.getMyClasses) || [];
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [activePage, setActivePage] = useState<"dashboard" | "settings">("dashboard");
-  const [theme, setTheme] = useState<"device" | "sun" | "moon">("device");
-
-  const getCookie = (name: string) => {
-    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-    return match ? decodeURIComponent(match[2]) : null;
-  };
-
-  const setCookie = (name: string, value: string, days = 365) => {
-    const expires = new Date(Date.now() + days * 864e5).toUTCString();
-    document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
-  };
-
-  useEffect(() => {
-    const saved = getCookie("eduos_theme");
-    if (saved === "device" || saved === "sun" || saved === "moon") {
-      setTheme(saved);
-      return;
-    }
-    setTheme("device");
-  }, []);
-
-  useEffect(() => {
-    const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-    const applyTheme = () => {
-      const prefersDark = media ? media.matches : false;
-      const resolved = theme === "device" ? (prefersDark ? "moon" : "sun") : theme;
-      if (resolved === "sun") {
-        document.documentElement.removeAttribute("data-theme");
-      } else {
-        document.documentElement.setAttribute("data-theme", resolved);
-      }
-    };
-
-    applyTheme();
-    setCookie("eduos_theme", theme);
-
-    if (theme === "device" && media) {
-      if ("addEventListener" in media) {
-        media.addEventListener("change", applyTheme);
-        return () => media.removeEventListener("change", applyTheme);
-      }
-      const legacyMedia = media as MediaQueryList & {
-        addListener?: (listener: () => void) => void;
-        removeListener?: (listener: () => void) => void;
-      };
-      if (typeof legacyMedia.addListener === "function") {
-        legacyMedia.addListener(applyTheme);
-        return () => legacyMedia.removeListener?.(applyTheme);
-      }
-    }
-  }, [theme]);
-
 
   if (user === undefined) return <LoadingScreen />;
   if (!user) return <LandingPage />;
@@ -99,7 +105,7 @@ function DashboardContent() {
                   onBack={() => setActivePage("dashboard")}
                   onSignOut={() => signOut()}
                   theme={theme}
-                  onThemeChange={setTheme}
+                  onThemeChange={onThemeChange}
                 />
               ) : (
                 <ClassDashboard
