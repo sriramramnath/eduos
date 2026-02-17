@@ -152,7 +152,6 @@ export const updateAccentColor = mutation({
   handler: async (ctx, { accentColor }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
-    if (data.user.role !== "student") throw new Error("Only students can change accent color");
 
     await ctx.db.patch(data.user._id, { accentColor });
     return await ctx.db.get(data.user._id);

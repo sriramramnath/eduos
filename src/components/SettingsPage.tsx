@@ -300,45 +300,47 @@ export function SettingsPage({
             Moon (Dark)
           </button>
         </div>
-        {user.role === "student" && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Accent color</p>
-              {accentSaving && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Saving...</p>}
-            </div>
-            <div className="rounded-xl bg-[#12070b] px-4 py-3">
-              <div className="flex flex-wrap gap-3">
-                {ACCENT_COLOR_OPTIONS.map((accent) => {
-                  const active = selectedAccent === accent.key;
-                  return (
-                    <button
-                      key={accent.key}
-                      onClick={() => {
-                        if (active || accentSaving) return;
-                        setOptimisticAccent(accent.key);
-                        setAccentSaving(true);
-                        void updateAccentColor({ accentColor: accent.key })
-                          .catch(() => {
-                            setOptimisticAccent((user.accentColor || DEFAULT_ACCENT_COLOR) as AccentColorKey);
-                          })
-                          .finally(() => {
-                            setAccentSaving(false);
-                          });
-                      }}
-                      title={accent.label}
-                      disabled={accentSaving}
-                      className={`relative h-11 w-11 rounded-full transition-transform ${active ? "scale-110" : "hover:scale-105"}`}
-                      style={{ backgroundColor: accent.value }}
-                    >
-                      {active && <span className="absolute -inset-1.5 rounded-full border-2 border-white/90" />}
-                      <span className="sr-only">{accent.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Accent color</p>
+            {accentSaving && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Saving...</p>}
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-4">
+            <div className="flex flex-wrap items-center gap-4">
+              {ACCENT_COLOR_OPTIONS.map((accent) => {
+                const active = selectedAccent === accent.key;
+                return (
+                  <button
+                    key={accent.key}
+                    onClick={() => {
+                      if (active || accentSaving) return;
+                      setOptimisticAccent(accent.key);
+                      setAccentSaving(true);
+                      void updateAccentColor({ accentColor: accent.key })
+                        .catch(() => {
+                          setOptimisticAccent((user.accentColor || DEFAULT_ACCENT_COLOR) as AccentColorKey);
+                        })
+                        .finally(() => {
+                          setAccentSaving(false);
+                        });
+                    }}
+                    title={accent.label}
+                    disabled={accentSaving}
+                    className={`relative h-12 w-12 rounded-full transition-transform ${active ? "scale-105" : "hover:scale-105"}`}
+                    style={{ backgroundColor: accent.value }}
+                  >
+                    {active && (
+                      <>
+                        <span className="pointer-events-none absolute -inset-1.5 rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(15,23,42,0.15)]" />
+                      </>
+                    )}
+                    <span className="sr-only">{accent.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
