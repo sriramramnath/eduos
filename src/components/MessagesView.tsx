@@ -1,13 +1,30 @@
-import { useMemo, useState } from "react";
+import { KeyboardEvent, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { Flag, Send, ShieldAlert } from "lucide-react";
+import {
+  MessageSquareMore,
+  Search,
+  SendHorizontal,
+} from "lucide-react";
+
 const EMPTY_ARRAY: any[] = [];
 
 interface MessagesViewProps {
   classId: Id<"classes">;
   user: any;
+}
+
+function formatThreadTime(timestamp?: number) {
+  if (!timestamp) return "";
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getAvatarFallback(nameOrEmail: string) {
+  return (nameOrEmail || "?").slice(0, 1).toUpperCase();
 }
 
 export function MessagesView({ classId, user }: MessagesViewProps) {
@@ -16,11 +33,16 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
 
   const featureApi = (api as any).featureFunctions;
   const sendDirectMessage = useMutation(featureApi.sendDirectMessage);
-  const moderateMessage = useMutation(featureApi.moderateMessage);
 
   const [selectedPeer, setSelectedPeer] = useState<string>("");
   const [draft, setDraft] = useState("");
+  const [search, setSearch] = useState("");
+
   const membersList = members ?? EMPTY_ARRAY;
+  const threadSummaries =
+    useQuery(featureApi.getDirectMessageThreads, {
+      classId,
+    }) || EMPTY_ARRAY;
 
   const peers = useMemo(() => {
     const base = membersList.filter((member: any) => member.email !== user.email);
@@ -30,12 +52,46 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
     return base;
   }, [membersList, teacher, user.email]);
 
-  const peerEmail = selectedPeer || peers[0]?.email || "";
+  const threadMap = useMemo(() => {
+    return new globalThis.Map<string, any>(
+      threadSummaries.map((thread: any) => [thread.peerEmail, thread] as const)
+    );
+  }, [threadSummaries]);
 
-  const messages = useQuery(
-    featureApi.getDirectMessages,
-    peerEmail ? { classId, peerEmail } : "skip"
-  ) || [];
+  const peersWithMeta = useMemo(() => {
+    const mapped = peers.map((peer: any) => {
+      const thread = threadMap.get(peer.email);
+      return {
+        ...peer,
+        thread,
+        lastMessageAt: thread?.lastMessageAt ?? 0,
+      };
+    });
+
+    return mapped.sort((a: any, b: any) => b.lastMessageAt - a.lastMessageAt);
+  }, [peers, threadMap]);
+
+  const filteredPeers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return peersWithMeta;
+    return peersWithMeta.filter((peer: any) => {
+      const name = (peer.name || "").toLowerCase();
+      const email = (peer.email || "").toLowerCase();
+      const preview = (peer.thread?.lastMessage || "").toLowerCase();
+      return name.includes(q) || email.includes(q) || preview.includes(q);
+    });
+  }, [peersWithMeta, search]);
+
+  const peerEmail =
+    selectedPeer && filteredPeers.some((peer: any) => peer.email === selectedPeer)
+      ? selectedPeer
+      : filteredPeers[0]?.email || selectedPeer || peersWithMeta[0]?.email || "";
+
+  const selectedPeerMeta = peersWithMeta.find((peer: any) => peer.email === peerEmail);
+
+  const messages =
+    useQuery(featureApi.getDirectMessages, peerEmail ? { classId, peerEmail } : "skip") ||
+    EMPTY_ARRAY;
 
   const sendMessage = async () => {
     const content = draft.trim();
@@ -49,101 +105,175 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
     setDraft("");
   };
 
-  const flagMessage = async (messageId: string, currentlyFlagged: boolean) => {
-    await moderateMessage({
-      messageId,
-      action: currentlyFlagged ? "unflag" : "flag",
-      reason: currentlyFlagged ? "Cleared by teacher" : "Flagged by teacher",
-    });
+  const sendMessageFromKeyboard = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage();
+    }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Messages</h2>
-        <p className="text-sm text-slate-500 font-medium">Secure class direct messaging with moderation controls.</p>
-      </div>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="rounded-3xl border border-slate-200 bg-white p-3 md:p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-3 min-h-[640px]">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="premium-card p-4 space-y-2 lg:col-span-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Conversations</p>
-          <div className="space-y-1 max-h-[60vh] overflow-auto">
-            {peers.map((peer: any) => (
-              <button
-                key={peer.email}
-                onClick={() => setSelectedPeer(peer.email)}
-                className={`w-full text-left px-3 py-2 rounded-md border text-sm font-bold transition-all ${peerEmail === peer.email ? "border-emerald-500 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-              >
-                {peer.name}
-                <p className="text-[9px] font-medium uppercase tracking-widest text-slate-400 mt-0.5">{peer.email}</p>
-              </button>
-            ))}
-            {peers.length === 0 && (
-              <p className="text-xs text-slate-400 font-medium py-4">No peers available.</p>
-            )}
-          </div>
-        </div>
+            <aside className="rounded-2xl border border-slate-200 bg-white p-2 md:p-3 flex flex-col overflow-hidden">
+              <div className="mb-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search"
+                    className="w-full h-11 rounded-2xl border border-slate-200 bg-slate-50 px-10 text-sm font-medium text-slate-700 placeholder:text-slate-400 outline-none"
+                  />
+                </div>
+                <p className="text-2xl leading-none tracking-tight font-black text-slate-900 mt-4 px-1">
+                  Messages
+                </p>
+              </div>
 
-        <div className="premium-card p-4 space-y-3 lg:col-span-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Thread</p>
+              <div className="flex-1 overflow-auto pr-1 space-y-1">
+                {filteredPeers.map((peer: any) => {
+                  const isActive = peer.email === peerEmail;
+                  const preview = peer.thread?.lastMessage || "No messages yet";
+                  const previewPrefix =
+                    peer.thread?.lastSenderEmail === user.email ? "You: " : "";
+                  const displayName = peer.name || peer.email.split("@")[0];
+                  const initial = getAvatarFallback(displayName || peer.email);
 
-          <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
-            {messages.length === 0 && (
-              <p className="text-xs text-slate-400 font-medium py-8 text-center">No messages yet.</p>
-            )}
+                  return (
+                    <button
+                      key={peer.email}
+                      onClick={() => setSelectedPeer(peer.email)}
+                      className={`w-full rounded-xl px-3 py-2.5 text-left border transition-all ${
+                        isActive
+                          ? "bg-emerald-50 border-emerald-200"
+                          : "bg-transparent border-transparent hover:bg-slate-50 hover:border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-700 inline-flex items-center justify-center shrink-0">
+                          {initial}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm leading-5 font-bold text-slate-900 truncate">
+                              {displayName}
+                            </p>
+                            <p className="text-[11px] text-slate-500 shrink-0">
+                              {formatThreadTime(peer.thread?.lastMessageAt)}
+                            </p>
+                          </div>
+                          <p className="mt-0.5 text-sm text-slate-500 truncate">
+                            {previewPrefix}
+                            {preview}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
 
-            {messages.map((message: any) => {
-              const mine = message.senderEmail === user.email;
-              return (
-                <div key={message._id} className={`rounded-md border px-3 py-2 ${mine ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200 bg-slate-50"}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{mine ? "You" : message.senderEmail.split("@")[0]}</p>
-                    <div className="flex items-center gap-2">
-                      {message.isFlagged && (
-                        <span className="text-[8px] font-bold uppercase tracking-widest text-rose-600 inline-flex items-center gap-1">
-                          <ShieldAlert className="w-3 h-3" /> Flagged
-                        </span>
-                      )}
-                      {user.role === "teacher" && (
-                        <button
-                          onClick={() => {
-                            void flagMessage(message._id, !!message.isFlagged);
-                          }}
-                          className="text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:text-rose-600 inline-flex items-center gap-1"
-                        >
-                          <Flag className="w-3 h-3" /> {message.isFlagged ? "Unflag" : "Flag"}
-                        </button>
-                      )}
+                {filteredPeers.length === 0 && (
+                  <div className="px-3 py-8 text-center">
+                    <p className="text-xs text-slate-400 font-semibold">No conversations found.</p>
+                  </div>
+                )}
+              </div>
+            </aside>
+
+            <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+              <header className="h-[84px] border-b border-slate-200 bg-white px-4 md:px-5 flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-11 w-11 rounded-full border border-slate-200 bg-white text-sm font-bold text-slate-700 inline-flex items-center justify-center shrink-0">
+                    {getAvatarFallback(selectedPeerMeta?.name || selectedPeerMeta?.email || "?")}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-lg md:text-xl leading-6 font-bold text-slate-900 truncate">
+                      {selectedPeerMeta?.name || selectedPeerMeta?.email || "Pick a conversation"}
+                    </p>
+                    <p className="text-sm text-slate-500 truncate">
+                      {selectedPeerMeta ? "Online" : "Start a conversation"}
+                    </p>
+                  </div>
+                </div>
+                {selectedPeerMeta && (
+                  <span className="text-[11px] font-semibold text-slate-500 rounded-full bg-white px-3 py-1 border border-slate-200">
+                    {messages.length} messages
+                  </span>
+                )}
+              </header>
+
+              <div className="flex-1 overflow-auto p-3 md:p-4 space-y-2 bg-slate-50/30">
+                {messages.length === 0 && (
+                  <div className="h-full min-h-[220px] flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="mx-auto mb-3 h-10 w-10 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500">
+                        <MessageSquareMore className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-600">No messages yet</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Start this conversation with a quick hello.
+                      </p>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{message.content}</p>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-300 mt-2">
-                    {new Date(message.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
+                )}
 
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={peerEmail ? "Type a message" : "Select a conversation"}
-              className="flex-1 px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-sm font-medium text-slate-700"
-            />
-            <button
-              onClick={() => {
-                void sendMessage();
-              }}
-              disabled={!peerEmail || !draft.trim()}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[11px] uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              <Send className="w-3.5 h-3.5" /> Send
-            </button>
+                {messages.map((message: any) => {
+                  const mine = message.senderEmail === user.email;
+                  return (
+                    <div key={message._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[88%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
+                        <div
+                          className={`rounded-[20px] border px-4 py-3 leading-6 shadow-sm ${
+                            mine
+                              ? "bg-emerald-600 border-emerald-600 text-white rounded-br-[10px]"
+                              : "bg-white border-slate-200 text-slate-700 rounded-bl-[10px]"
+                          }`}
+                        >
+                          <p className="text-sm md:text-[15px] whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        <p className="px-1 mt-1 text-[11px] text-slate-500">
+                          {new Date(message.createdAt).toLocaleString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <footer className="border-t border-slate-200 bg-slate-50 p-3 md:p-4">
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 flex items-end gap-2">
+                  <textarea
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={sendMessageFromKeyboard}
+                    placeholder={peerEmail ? "Write a Message" : "Select a conversation first"}
+                    rows={1}
+                    className="flex-1 min-h-[42px] max-h-32 px-2 py-2 rounded-lg bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-y"
+                  />
+                  <button
+                    onClick={() => {
+                      void sendMessage();
+                    }}
+                    disabled={!peerEmail || !draft.trim()}
+                    className="h-11 w-11 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center disabled:opacity-50 hover:bg-emerald-700 transition-colors"
+                    aria-label="Send message"
+                  >
+                    <SendHorizontal className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-[10px] font-medium text-slate-400 mt-2 px-1">
+                  Press Enter to send. Use Shift + Enter for a new line.
+                </p>
+              </footer>
+            </section>
           </div>
         </div>
-      </div>
     </div>
   );
 }

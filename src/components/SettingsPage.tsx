@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { LogOut, ArrowLeft, User, Shield, Bell, Sparkles, Sun, Moon, Monitor, Link2, RefreshCw, CheckCircle2 } from "lucide-react";
+import { ACCENT_COLOR_OPTIONS, DEFAULT_ACCENT_COLOR, type AccentColorKey } from "../lib/accentColors";
 
 interface SettingsPageProps {
   user: any;
@@ -28,9 +29,13 @@ export function SettingsPage({
   const markAllNotificationsRead = useMutation(featureApi.markAllNotificationsRead);
   const upsertIntegrationConnection = useMutation(featureApi.upsertIntegrationConnection);
   const triggerIntegrationSync = useMutation(featureApi.triggerIntegrationSync);
+  const updateAccentColor = useMutation((api as any).myFunctions.updateAccentColor);
 
   const [optimisticPrefs, setOptimisticPrefs] = useState<Record<string, boolean>>({});
+  const [accentSaving, setAccentSaving] = useState(false);
+  const [optimisticAccent, setOptimisticAccent] = useState<AccentColorKey | null>(null);
   const prefs = serverPrefs ? { ...serverPrefs, ...optimisticPrefs } : null;
+  const selectedAccent = (optimisticAccent || user.accentColor || DEFAULT_ACCENT_COLOR) as AccentColorKey;
 
   const savePrefs = async (patch: Record<string, boolean>) => {
     if (!prefs) return;
@@ -272,7 +277,7 @@ export function SettingsPage({
           <Sparkles className="w-4 h-4" />
           <h3 className="text-sm font-bold">Appearance</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           <button
             onClick={() => onThemeChange("device")}
             className={`px-4 py-3 rounded-md border font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${theme === "device" ? "border-slate-300 bg-slate-100 text-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
@@ -295,6 +300,45 @@ export function SettingsPage({
             Moon (Dark)
           </button>
         </div>
+        {user.role === "student" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Accent color</p>
+              {accentSaving && <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Saving...</p>}
+            </div>
+            <div className="rounded-xl bg-[#12070b] px-4 py-3">
+              <div className="flex flex-wrap gap-3">
+                {ACCENT_COLOR_OPTIONS.map((accent) => {
+                  const active = selectedAccent === accent.key;
+                  return (
+                    <button
+                      key={accent.key}
+                      onClick={() => {
+                        if (active || accentSaving) return;
+                        setOptimisticAccent(accent.key);
+                        setAccentSaving(true);
+                        void updateAccentColor({ accentColor: accent.key })
+                          .catch(() => {
+                            setOptimisticAccent((user.accentColor || DEFAULT_ACCENT_COLOR) as AccentColorKey);
+                          })
+                          .finally(() => {
+                            setAccentSaving(false);
+                          });
+                      }}
+                      title={accent.label}
+                      disabled={accentSaving}
+                      className={`relative h-11 w-11 rounded-full transition-transform ${active ? "scale-110" : "hover:scale-105"}`}
+                      style={{ backgroundColor: accent.value }}
+                    >
+                      {active && <span className="absolute -inset-1.5 rounded-full border-2 border-white/90" />}
+                      <span className="sr-only">{accent.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

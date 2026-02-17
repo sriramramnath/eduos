@@ -1615,7 +1615,6 @@ export const sendDirectMessage = mutation({
       recipientEmail,
       content: content.trim(),
       createdAt: Date.now(),
-      isFlagged: false,
     });
 
     await createNotification(ctx, {
@@ -1656,10 +1655,52 @@ export const getDirectMessages = query({
   },
 });
 
+export const getDirectMessageThreads = query({
+  args: {
+    classId: v.id("classes"),
+  },
+  handler: async (ctx, { classId }) => {
+    const user = await requireUser(ctx as any);
+    const member = await isClassMember(ctx as any, classId, user.email);
+    if (!member) return [];
+
+    const rows = await (ctx.db as any)
+      .query("directMessages")
+      .withIndex("class", (q: any) => q.eq("classId", classId))
+      .collect();
+
+    const relevant = rows.filter(
+      (msg: any) => msg.senderEmail === user.email || msg.recipientEmail === user.email
+    );
+
+    const threads = new Map<string, any>();
+    for (const msg of relevant) {
+      const peerEmail = msg.senderEmail === user.email ? msg.recipientEmail : msg.senderEmail;
+      const existing = threads.get(peerEmail);
+      if (!existing || msg.createdAt > existing.lastMessageAt) {
+        threads.set(peerEmail, {
+          peerEmail,
+          lastMessage: msg.content,
+          lastMessageAt: msg.createdAt,
+          lastSenderEmail: msg.senderEmail,
+          messageCount: (existing?.messageCount ?? 0) + 1,
+        });
+      } else {
+        existing.messageCount += 1;
+        threads.set(peerEmail, existing);
+      }
+    }
+
+    return Array.from(threads.values()).sort(
+      (a: any, b: any) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0)
+    );
+  },
+});
+
 export const moderateMessage = mutation({
   args: {
     messageId: v.id("directMessages"),
-    action: v.union(v.literal("flag"), v.literal("unflag"), v.literal("delete")),
+    action: v.literal("delete"),
     reason: v.optional(v.string()),
   },
   handler: async (ctx, { messageId, action, reason }) => {
@@ -1670,19 +1711,6 @@ export const moderateMessage = mutation({
 
     await assertTeacherOfClass(ctx, msg.classId, user.email);
 
-    if (action === "delete") {
-      await db.insert("messageAudit", {
-        messageId,
-        action,
-        actorEmail: user.email,
-        reason,
-        createdAt: Date.now(),
-      });
-      await db.delete(messageId);
-      return { deleted: true };
-    }
-
-    await db.patch(messageId, { isFlagged: action === "flag" });
     await db.insert("messageAudit", {
       messageId,
       action,
@@ -1690,8 +1718,8 @@ export const moderateMessage = mutation({
       reason,
       createdAt: Date.now(),
     });
-
-    return await db.get(messageId);
+    await db.delete(messageId);
+    return { deleted: true };
   },
 });
 

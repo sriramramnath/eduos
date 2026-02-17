@@ -18,7 +18,18 @@ type CalendarEvent = {
   endAt?: number;
 };
 
+type CalendarMode = "board" | "month" | "timebox";
+
+type TimeboxEvent = CalendarEvent & {
+  top: number;
+  height: number;
+};
+
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const BOARD_WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const TIMELINE_START_HOUR = 7;
+const TIMELINE_END_HOUR = 20;
+const PIXELS_PER_HOUR = 64;
 
 const toDayKey = (date: Date) => {
   const year = date.getFullYear();
@@ -32,33 +43,58 @@ const fromDayKey = (key: string) => {
   return new Date(year, (month || 1) - 1, day || 1);
 };
 
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const startOfWeekMonday = (date: Date) => {
+  const copy = new Date(date);
+  const day = copy.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  copy.setDate(copy.getDate() + offset);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+
+const getDefaultDurationMinutes = (type?: string) => {
+  if (type === "assignment") return 60;
+  if (type === "quiz") return 45;
+  if (type === "form") return 30;
+  return 45;
+};
+
 const getEventTone = (type?: string) => {
   if (type === "assignment") {
     return {
-      dot: "bg-rose-500",
-      chip: "bg-rose-50 border border-rose-100 text-rose-700",
+      dot: "bg-emerald-500",
+      chip: "bg-emerald-50 border border-emerald-100 text-emerald-700",
       label: "Assignment",
+      block: "bg-emerald-600 text-white border-emerald-500",
     };
   }
   if (type === "quiz") {
     return {
-      dot: "bg-violet-500",
-      chip: "bg-violet-50 border border-violet-100 text-violet-700",
+      dot: "bg-emerald-500",
+      chip: "bg-emerald-50 border border-emerald-100 text-emerald-700",
       label: "Quiz",
+      block: "bg-emerald-600 text-white border-emerald-500",
     };
   }
   if (type === "form") {
     return {
-      dot: "bg-amber-500",
-      chip: "bg-amber-50 border border-amber-100 text-amber-700",
+      dot: "bg-emerald-500",
+      chip: "bg-emerald-50 border border-emerald-100 text-emerald-700",
       label: "Form",
+      block: "bg-emerald-600 text-white border-emerald-500",
     };
   }
-
   return {
-    dot: "bg-sky-500",
-    chip: "bg-sky-50 border border-sky-100 text-sky-700",
+    dot: "bg-emerald-500",
+    chip: "bg-emerald-50 border border-emerald-100 text-emerald-700",
     label: "Event",
+    block: "bg-emerald-600 text-white border-emerald-500",
   };
 };
 
@@ -69,6 +105,7 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
   const events = calendarData ?? [];
 
   const now = new Date();
+  const [viewMode, setViewMode] = useState<CalendarMode>("board");
   const [monthCursor, setMonthCursor] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selectedDayKey, setSelectedDayKey] = useState(() => toDayKey(now));
 
@@ -107,6 +144,58 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
   const selectedDate = useMemo(() => fromDayKey(selectedDayKey), [selectedDayKey]);
   const selectedDayEvents = eventsByDay.get(selectedDayKey) || [];
 
+  const boardWeekDays = useMemo(() => {
+    const monday = startOfWeekMonday(selectedDate);
+    return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
+  }, [selectedDate]);
+
+  const boardRangeLabel = useMemo(() => {
+    const weekStart = boardWeekDays[0];
+    const weekEnd = boardWeekDays[6];
+    const startLabel = weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const endLabel = weekEnd.toLocaleDateString("en-US", {
+      month: weekEnd.getMonth() === weekStart.getMonth() ? undefined : "short",
+      day: "numeric",
+      year: weekEnd.getFullYear() === weekStart.getFullYear() ? undefined : "numeric",
+    });
+    const yearLabel = weekEnd.getFullYear();
+    return `${startLabel} - ${endLabel}, ${yearLabel}`;
+  }, [boardWeekDays]);
+
+  const timeboxLabel = useMemo(
+    () =>
+      selectedDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    [selectedDate]
+  );
+
+  const monthEventCount = useMemo(
+    () =>
+      events.filter((event) => {
+        const eventDate = new Date(event.startAt);
+        return (
+          eventDate.getFullYear() === monthCursor.getFullYear() &&
+          eventDate.getMonth() === monthCursor.getMonth()
+        );
+      }).length,
+    [events, monthCursor]
+  );
+
+  const weekAheadCount = useMemo(() => {
+    const nowMs = Date.now();
+    const sevenDays = nowMs + 7 * 24 * 60 * 60 * 1000;
+    return events.filter((event) => event.startAt >= nowMs && event.startAt <= sevenDays).length;
+  }, [events]);
+
+  const assignmentCount = useMemo(
+    () => events.filter((event) => event.type === "assignment").length,
+    [events]
+  );
+
   const upcomingEvents = useMemo(() => {
     return [...events]
       .filter((event) => event.startAt >= Date.now() - 24 * 60 * 60 * 1000)
@@ -114,10 +203,62 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
       .slice(0, 8);
   }, [events]);
 
+  const timelineHours = useMemo(
+    () => Array.from({ length: TIMELINE_END_HOUR - TIMELINE_START_HOUR + 1 }, (_, i) => TIMELINE_START_HOUR + i),
+    []
+  );
+
+  const timeboxEvents = useMemo(() => {
+    const timelineStartMinutes = TIMELINE_START_HOUR * 60;
+    const timelineEndMinutes = TIMELINE_END_HOUR * 60;
+    const pixelsPerMinute = PIXELS_PER_HOUR / 60;
+
+    return selectedDayEvents
+      .map((event) => {
+        const start = new Date(event.startAt);
+        const startMinutes = start.getHours() * 60 + start.getMinutes();
+        const inferredDuration = event.endAt
+          ? Math.max(15, Math.round((event.endAt - event.startAt) / 60000))
+          : getDefaultDurationMinutes(event.type);
+        const endMinutes = startMinutes + inferredDuration;
+        const clampedStart = Math.max(startMinutes, timelineStartMinutes);
+        const clampedEnd = Math.min(endMinutes, timelineEndMinutes);
+
+        if (clampedEnd <= timelineStartMinutes || clampedStart >= timelineEndMinutes) {
+          return null;
+        }
+
+        return {
+          ...event,
+          top: (clampedStart - timelineStartMinutes) * pixelsPerMinute,
+          height: Math.max((clampedEnd - clampedStart) * pixelsPerMinute, 30),
+        };
+      })
+      .filter((event): event is TimeboxEvent => !!event)
+      .sort((a, b) => a.startAt - b.startAt);
+  }, [selectedDayEvents]);
+
+  const currentPrimaryLabel =
+    viewMode === "month" ? monthLabel : viewMode === "board" ? boardRangeLabel : timeboxLabel;
+
   const goToday = () => {
     const today = new Date();
     setMonthCursor(new Date(today.getFullYear(), today.getMonth(), 1));
     setSelectedDayKey(toDayKey(today));
+  };
+
+  const shiftPeriod = (direction: -1 | 1) => {
+    if (viewMode === "month") {
+      const next = new Date(monthCursor);
+      next.setMonth(next.getMonth() + direction);
+      setMonthCursor(new Date(next.getFullYear(), next.getMonth(), 1));
+      return;
+    }
+
+    const step = viewMode === "board" ? 7 : 1;
+    const nextDate = addDays(selectedDate, direction * step);
+    setSelectedDayKey(toDayKey(nextDate));
+    setMonthCursor(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
   };
 
   const createEvent = async () => {
@@ -143,22 +284,72 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Calendar</h2>
-          <p className="text-sm text-slate-500 font-medium">
-            Month view inspired by Google Calendar for class planning and deadlines.
-          </p>
+      <div className="premium-card overflow-hidden">
+        <div className="px-4 md:px-6 py-5 bg-slate-50 border-b border-slate-200">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Calendar</h2>
+              <p className="text-sm text-slate-500 font-medium">
+                Plan deadlines, lessons, and milestones in one class timeline.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+                <button
+                  onClick={() => setViewMode("board")}
+                  className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    viewMode === "board" ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  Week Board
+                </button>
+                <button
+                  onClick={() => setViewMode("month")}
+                  className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    viewMode === "month" ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  Month
+                </button>
+                <button
+                  onClick={() => setViewMode("timebox")}
+                  className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                    viewMode === "timebox" ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  Timebox
+                </button>
+              </div>
+              <button
+                onClick={goToday}
+                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
+              >
+                <CalendarDays className="w-4 h-4" /> Jump to Today
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">This Month</p>
+              <p className="text-xl font-black text-slate-900">{monthEventCount}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Due in 7 Days</p>
+              <p className="text-xl font-black text-emerald-700">{weekAheadCount}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600">Assignments</p>
+              <p className="text-xl font-black text-emerald-700">{assignmentCount}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Selected Day</p>
+              <p className="text-xl font-black text-slate-900">{selectedDayEvents.length}</p>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={goToday}
-          className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors"
-        >
-          <CalendarDays className="w-4 h-4" /> Today
-        </button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-6">
         <aside className="space-y-4">
           {user.role === "teacher" && (
             <div className="premium-card p-4 space-y-3">
@@ -185,7 +376,7 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
                 onClick={() => {
                   void createEvent();
                 }}
-                className="w-full h-10 rounded-lg bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700 transition-colors inline-flex items-center justify-center gap-2"
+                className="w-full h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors inline-flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" /> Add Event
               </button>
@@ -193,7 +384,10 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
           )}
 
           <div className="premium-card p-4 space-y-3">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">Upcoming</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">Upcoming</p>
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{upcomingEvents.length}</span>
+            </div>
             {upcomingEvents.length === 0 ? (
               <p className="text-sm text-slate-400">No upcoming events.</p>
             ) : (
@@ -210,7 +404,10 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
                       }}
                       className="w-full text-left rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2.5 transition-colors"
                     >
-                      <p className="text-sm font-semibold text-slate-900 truncate">{event.title}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{event.title}</p>
+                        <span className={`shrink-0 mt-0.5 w-2 h-2 rounded-full ${tone.dot}`} />
+                      </div>
                       <div className="mt-1 flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-semibold uppercase tracking-[0.08em] px-2 py-0.5 rounded-md ${tone.chip}`}>
                           {tone.label}
@@ -231,29 +428,21 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
           <div className="px-4 md:px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  const prev = new Date(monthCursor);
-                  prev.setMonth(prev.getMonth() - 1);
-                  setMonthCursor(new Date(prev.getFullYear(), prev.getMonth(), 1));
-                }}
+                onClick={() => shiftPeriod(-1)}
                 className="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center"
-                aria-label="Previous month"
+                aria-label="Previous period"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
-                onClick={() => {
-                  const next = new Date(monthCursor);
-                  next.setMonth(next.getMonth() + 1);
-                  setMonthCursor(new Date(next.getFullYear(), next.getMonth(), 1));
-                }}
+                onClick={() => shiftPeriod(1)}
                 className="w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center"
-                aria-label="Next month"
+                aria-label="Next period"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900">{monthLabel}</h3>
+            <h3 className="text-lg font-semibold text-slate-900 text-center">{currentPrimaryLabel}</h3>
             <button
               onClick={goToday}
               className="md:hidden px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50"
@@ -262,57 +451,204 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/70">
-            {WEEKDAY_LABELS.map((label) => (
-              <div key={label} className="h-10 border-r border-slate-200 last:border-r-0 px-2 flex items-center justify-end">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
+          {viewMode === "month" && (
+            <>
+              <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-100">
+                {WEEKDAY_LABELS.map((label) => (
+                  <div key={label} className="h-10 border-r border-slate-200 last:border-r-0 px-2 flex items-center justify-end">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div className="grid grid-cols-7">
-            {monthGridDays.map((day, index) => {
-              const key = toDayKey(day);
-              const dayEvents = eventsByDay.get(key) || [];
-              const isCurrentMonth = day.getMonth() === monthCursor.getMonth();
-              const isToday = key === todayKey;
-              const isSelected = key === selectedDayKey;
+              <div className="grid grid-cols-7">
+                {monthGridDays.map((day, index) => {
+                  const key = toDayKey(day);
+                  const dayEvents = eventsByDay.get(key) || [];
+                  const isCurrentMonth = day.getMonth() === monthCursor.getMonth();
+                  const isToday = key === todayKey;
+                  const isSelected = key === selectedDayKey;
 
-              return (
-                <button
-                  key={`${key}-${index}`}
-                  onClick={() => setSelectedDayKey(key)}
-                  className={`min-h-[110px] border-r border-b border-slate-200 p-2 md:p-2.5 text-left align-top transition-colors last:border-r-0 ${isSelected ? "bg-sky-50/60" : "bg-white hover:bg-slate-50/70"}`}
-                >
-                  <div className="flex justify-between items-start">
-                    <span
-                      className={`inline-flex w-6 h-6 rounded-full items-center justify-center text-xs font-semibold ${isToday ? "bg-sky-600 text-white" : isCurrentMonth ? "text-slate-700" : "text-slate-400"}`}
+                  return (
+                    <button
+                      key={`${key}-${index}`}
+                      onClick={() => setSelectedDayKey(key)}
+                      className={`min-h-[124px] border-r border-b border-slate-200 p-2.5 text-left align-top transition-colors last:border-r-0 ${
+                        isSelected ? "bg-emerald-50" : "bg-white hover:bg-slate-50"
+                      }`}
                     >
-                      {day.getDate()}
-                    </span>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {dayEvents.slice(0, 2).map((event) => {
-                      const tone = getEventTone(event.type);
-                      return (
-                        <div key={event.id} className={`truncate rounded-md px-1.5 py-0.5 text-[11px] font-medium ${tone.chip}`}>
-                          {event.title}
+                      <div className="flex justify-between items-start gap-1.5">
+                        <span
+                          className={`inline-flex w-7 h-7 rounded-full items-center justify-center text-xs font-semibold ${
+                            isToday ? "bg-emerald-600 text-white" : isCurrentMonth ? "text-slate-700" : "text-slate-400"
+                          }`}
+                        >
+                          {day.getDate()}
+                        </span>
+                        {dayEvents.length > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-md border border-slate-200 bg-white text-[10px] font-semibold text-slate-500">
+                            {dayEvents.length}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {dayEvents.slice(0, 3).map((event) => {
+                          const tone = getEventTone(event.type);
+                          return (
+                            <div key={event.id} className={`rounded-md px-1.5 py-1 text-[10px] font-medium ${tone.chip}`}>
+                              <p className="truncate">{event.title}</p>
+                              <p className="text-[9px] opacity-70 mt-0.5">
+                                {new Date(event.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                              </p>
+                            </div>
+                          );
+                        })}
+                        {dayEvents.length > 3 && (
+                          <p className="text-[10px] font-medium text-slate-500 px-1">+{dayEvents.length - 3} more</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {viewMode === "board" && (
+            <div className="overflow-x-auto bg-slate-50">
+              <div className="grid grid-cols-7 min-w-[980px]">
+                {boardWeekDays.map((day, index) => {
+                  const key = toDayKey(day);
+                  const dayEvents = eventsByDay.get(key) || [];
+                  const isToday = key === todayKey;
+                  const isSelected = key === selectedDayKey;
+
+                  return (
+                    <div key={key} className="border-r border-slate-200 last:border-r-0">
+                      <button
+                        onClick={() => setSelectedDayKey(key)}
+                        className={`w-full text-left px-3 py-3 border-b border-slate-200 ${isSelected ? "bg-emerald-50" : "bg-white hover:bg-slate-50"}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm font-bold ${isToday ? "text-emerald-700" : "text-slate-800"}`}>
+                            {BOARD_WEEKDAY_LABELS[index]}
+                          </p>
+                          <span
+                            className={`inline-flex w-6 h-6 rounded-full items-center justify-center text-[11px] font-bold ${
+                              isToday ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {day.getDate()}
+                          </span>
                         </div>
-                      );
-                    })}
-                    {dayEvents.length > 2 && (
-                      <p className="text-[11px] font-medium text-slate-500 px-1">+{dayEvents.length - 2} more</p>
-                    )}
+                      </button>
+
+                      <div className="p-2.5 space-y-2 min-h-[480px] bg-slate-50">
+                        {dayEvents.length === 0 && (
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-3 text-center">
+                            <p className="text-[11px] text-slate-400 font-medium">No items</p>
+                          </div>
+                        )}
+
+                        {dayEvents.map((event) => {
+                          const tone = getEventTone(event.type);
+                          return (
+                            <button
+                              key={event.id}
+                              onClick={() => setSelectedDayKey(key)}
+                              className="w-full text-left rounded-lg border border-slate-200 bg-white px-3 py-2.5 hover:bg-slate-50 transition-colors"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold text-slate-900 truncate">{event.title}</p>
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${tone.dot}`} />
+                              </div>
+                              <div className="mt-1.5 flex items-center justify-between gap-2">
+                                <span className={`text-[9px] font-semibold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-md ${tone.chip}`}>
+                                  {tone.label}
+                                </span>
+                                <span className="text-[10px] font-medium text-slate-500">
+                                  {new Date(event.startAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {viewMode === "timebox" && (
+            <div className="grid grid-cols-[56px_minmax(0,1fr)] bg-white">
+              <div className="border-r border-slate-200">
+                {timelineHours.map((hour) => (
+                  <div
+                    key={hour}
+                    style={{ height: `${PIXELS_PER_HOUR}px` }}
+                    className="border-b border-slate-100 px-1.5 pt-1 text-[10px] text-slate-400 text-right"
+                  >
+                    {new Date(2026, 0, 1, hour).toLocaleTimeString([], { hour: "numeric" })}
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+
+              <div className="relative">
+                {timelineHours.map((hour) => (
+                  <div
+                    key={`line-${hour}`}
+                    style={{ height: `${PIXELS_PER_HOUR}px` }}
+                    className="border-b border-slate-100"
+                  />
+                ))}
+
+                <div className="absolute inset-0 pointer-events-none">
+                  {timeboxEvents.map((event) => {
+                    const tone = getEventTone(event.type);
+                    const startTime = new Date(event.startAt).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    });
+                    const endTime = new Date(
+                      event.endAt || event.startAt + getDefaultDurationMinutes(event.type) * 60 * 1000
+                    ).toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    });
+
+                    return (
+                      <div
+                        key={event.id}
+                        style={{
+                          top: `${event.top}px`,
+                          height: `${event.height}px`,
+                          left: "8px",
+                          right: "8px",
+                        }}
+                        className={`absolute rounded-lg border px-3 py-2 shadow-sm ${tone.block}`}
+                      >
+                        <p className="text-sm font-bold truncate">{event.title}</p>
+                        <p className="text-[11px] opacity-90 mt-0.5">{startTime} - {endTime}</p>
+                      </div>
+                    );
+                  })}
+
+                  {timeboxEvents.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <p className="text-sm text-slate-400">No events scheduled in this time range.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="premium-card p-5 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <h3 className="text-base font-semibold text-slate-900">
             Agenda for {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </h3>
@@ -322,18 +658,22 @@ export function CalendarView({ classId, user }: CalendarViewProps) {
         </div>
 
         {selectedDayEvents.length === 0 ? (
-          <p className="text-sm text-slate-500">No events scheduled for this day.</p>
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+            <p className="text-sm text-slate-500">No events scheduled for this day.</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {selectedDayEvents.map((event) => {
               const tone = getEventTone(event.type);
               return (
-                <div key={event.id} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 flex items-start gap-3">
+                <div key={event.id} className="rounded-xl border border-slate-200 bg-white px-3 py-3 flex items-start gap-3">
                   <span className={`mt-1.5 h-2.5 w-2.5 rounded-full ${tone.dot}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-slate-900 truncate">{event.title}</p>
-                      <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] px-2 py-0.5 rounded-md ${tone.chip}`}>
+                      <span
+                        className={`shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] px-2 py-0.5 rounded-md ${tone.chip}`}
+                      >
                         {tone.label}
                       </span>
                     </div>

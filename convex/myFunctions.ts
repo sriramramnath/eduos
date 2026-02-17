@@ -136,6 +136,29 @@ export const updateUserRole = mutation({
   },
 });
 
+export const updateAccentColor = mutation({
+  args: {
+    accentColor: v.union(
+      v.literal("green"),
+      v.literal("teal"),
+      v.literal("blue"),
+      v.literal("indigo"),
+      v.literal("amber"),
+      v.literal("pink"),
+      v.literal("rose"),
+      v.literal("orange"),
+    ),
+  },
+  handler: async (ctx, { accentColor }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+    if (data.user.role !== "student") throw new Error("Only students can change accent color");
+
+    await ctx.db.patch(data.user._id, { accentColor });
+    return await ctx.db.get(data.user._id);
+  },
+});
+
 export const autoRegisterUser = mutation({
   args: {
     name: v.string()
@@ -162,6 +185,7 @@ export const autoRegisterUser = mutation({
     const newUserId = await ctx.db.insert("users", {
       email: authUser.email,
       name: authUser.name || name,
+      accentColor: "green",
     });
 
     return await ctx.db.get(newUserId);
@@ -197,6 +221,7 @@ export const registerUser = mutation({
         email,
         name,
         role,
+        accentColor: "green",
       });
       return await ctx.db.get(newUserId);
     }

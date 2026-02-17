@@ -9,6 +9,18 @@ export default defineSchema({
     email: v.string(),
     name: v.string(),
     role: v.optional(v.union(v.literal("student"), v.literal("teacher"))),
+    accentColor: v.optional(
+      v.union(
+        v.literal("green"),
+        v.literal("teal"),
+        v.literal("blue"),
+        v.literal("indigo"),
+        v.literal("amber"),
+        v.literal("pink"),
+        v.literal("rose"),
+        v.literal("orange"),
+      ),
+    ),
     emailVerificationTime: v.optional(v.number()),
     image: v.optional(v.string()),
     xp: v.optional(v.number()),

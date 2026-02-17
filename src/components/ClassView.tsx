@@ -9,6 +9,7 @@ import { Gradebook } from "./Gradebook";
 import { LearningPath } from "./LearningPath";
 import { Scoreboard } from "./Scoreboard";
 import { FileViewer } from "./FileViewer";
+import { AssignmentModal } from "./AssignmentModal";
 import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus, Crown, User, CalendarDays, Send } from "lucide-react";
 import { Composer } from "./Composer";
 import { CalendarView } from "./CalendarView";
@@ -1124,6 +1125,10 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
     const links = useQuery(api.myFunctions.getClassLinks, { classId }) || [];
     const outcomes = useQuery(api.myFunctions.getOutcomes, { classId }) || [];
     const forms = useQuery(api.myFunctions.getForms, { classId }) || [];
+    const mySubmissions = useQuery(
+        api.myFunctions.getStudentSubmissions,
+        user.role === "student" ? { classId, studentId: user.email } : "skip"
+    ) || [];
     const createOutcome = useMutation(api.myFunctions.createOutcome);
     const createForm = useMutation(api.myFunctions.createForm);
     const submitForm = useMutation(api.myFunctions.submitForm);
@@ -1144,11 +1149,104 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
     const [activeForm, setActiveForm] = useState<any>(null);
     const [formAnswers, setFormAnswers] = useState<Record<string, string>>({});
     const [responsesFormId, setResponsesFormId] = useState<Id<"forms"> | null>(null);
+    const [selectedAssignmentFile, setSelectedAssignmentFile] = useState<any>(null);
+    const [editingAssignmentFile, setEditingAssignmentFile] = useState<any>(null);
     const responses = useQuery(api.myFunctions.getFormResponses, responsesFormId ? { formId: responsesFormId } : "skip") || [];
     const responsesAnalytics = useQuery(
         featureApi.getFormAnalytics,
         responsesFormId ? { formId: responsesFormId } : "skip"
     );
+
+    const assignmentFiles = useMemo(
+        () =>
+            files
+                .filter((file: any) => file.isAssignment)
+                .sort((left: any, right: any) => {
+                    const dueLeft = left.dueDate ?? Number.MAX_SAFE_INTEGER;
+                    const dueRight = right.dueDate ?? Number.MAX_SAFE_INTEGER;
+                    if (dueLeft !== dueRight) return dueLeft - dueRight;
+                    return right._creationTime - left._creationTime;
+                }),
+        [files]
+    );
+    const resourceFiles = useMemo(
+        () => files.filter((file: any) => !file.isAssignment),
+        [files]
+    );
+    const submissionByAssignment = useMemo(() => {
+        const latestByAssignment = new globalThis.Map<string, any>();
+        mySubmissions.forEach((submission: any) => {
+            const current = latestByAssignment.get(submission.assignmentId);
+            if (!current || submission.submittedAt > current.submittedAt) {
+                latestByAssignment.set(submission.assignmentId, submission);
+            }
+        });
+        return latestByAssignment;
+    }, [mySubmissions]);
+
+    const nowMs = Date.now();
+    const dueSoonBoundary = nowMs + 7 * 24 * 60 * 60 * 1000;
+    const dueSoonCount = assignmentFiles.filter(
+        (assignment: any) => assignment.dueDate && assignment.dueDate >= nowMs && assignment.dueDate <= dueSoonBoundary
+    ).length;
+    const overdueCount = assignmentFiles.filter((assignment: any) => {
+        if (!assignment.dueDate || assignment.dueDate >= nowMs) return false;
+        if (user.role !== "student") return true;
+        return !submissionByAssignment.has(assignment._id);
+    }).length;
+    const studentSubmittedCount =
+        user.role === "student"
+            ? assignmentFiles.filter((assignment: any) => submissionByAssignment.has(assignment._id)).length
+            : 0;
+
+    const getAssignmentStatus = (assignment: any) => {
+        const submission = submissionByAssignment.get(assignment._id);
+        const isPastDue = !!assignment.dueDate && assignment.dueDate < nowMs;
+        const isDueSoon = !!assignment.dueDate && assignment.dueDate >= nowMs && assignment.dueDate <= dueSoonBoundary;
+
+        if (user.role === "student") {
+            if (submission) {
+                return {
+                    label: submission.isLate ? "Submitted Late" : "Submitted",
+                    tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+                };
+            }
+            if (isPastDue) {
+                return {
+                    label: "Missing",
+                    tone: "border-rose-200 bg-rose-50 text-rose-700",
+                };
+            }
+            if (isDueSoon) {
+                return {
+                    label: "Due Soon",
+                    tone: "border-amber-200 bg-amber-50 text-amber-700",
+                };
+            }
+            return {
+                label: assignment.dueDate ? "In Progress" : "Open",
+                tone: "border-slate-200 bg-slate-50 text-slate-600",
+            };
+        }
+
+        if (isPastDue) {
+            return {
+                label: "Past Due",
+                tone: "border-rose-200 bg-rose-50 text-rose-700",
+            };
+        }
+        if (isDueSoon) {
+            return {
+                label: "Due Soon",
+                tone: "border-amber-200 bg-amber-50 text-amber-700",
+            };
+        }
+        return {
+            label: assignment.dueDate ? "Scheduled" : "No Deadline",
+            tone: "border-slate-200 bg-slate-50 text-slate-600",
+        };
+    };
+
     const newQuestionId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
     const responsesForm = forms.find((f: any) => f._id === responsesFormId);
     const getQuestionLabel = (questionId: string) => {
@@ -1158,19 +1256,149 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
 
     return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Resources</h2>
-                    <p className="text-sm text-slate-500 font-medium">Shared documents and materials.</p>
+            <div className="premium-card p-5 md:p-6 space-y-5">
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-1">Assignments</h2>
+                        <p className="text-sm text-slate-500 font-medium">Structured work queue with due-date visibility and status tracking.</p>
+                    </div>
+                    {user.role === "teacher" && (
+                        <UploadButton classId={classId} isAssignment={true} />
+                    )}
                 </div>
-                {user.role === "teacher" && (
-                    <UploadButton classId={classId} isAssignment={true} />
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total</p>
+                        <p className="text-xl font-black text-slate-900">{assignmentFiles.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-amber-700">Due Soon</p>
+                        <p className="text-xl font-black text-amber-700">{dueSoonCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-rose-600">{user.role === "student" ? "Missing" : "Past Due"}</p>
+                        <p className="text-xl font-black text-rose-700">{overdueCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-emerald-600">{user.role === "student" ? "Submitted" : "Resources"}</p>
+                        <p className="text-xl font-black text-emerald-700">{user.role === "student" ? studentSubmittedCount : resourceFiles.length}</p>
+                    </div>
+                </div>
+
+                {assignmentFiles.length === 0 ? (
+                    <div className="text-center py-10 rounded-md bg-slate-50 border border-dashed border-slate-200 text-slate-400 text-sm font-medium">
+                        No assignments posted yet.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                        {assignmentFiles.map((assignment: any) => {
+                            const dueAtLabel = assignment.dueDate
+                                ? new Date(assignment.dueDate).toLocaleString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                })
+                                : "No deadline";
+                            const status = getAssignmentStatus(assignment);
+                            const questionsCount = (assignment.questionPrompts || []).length;
+                            const outcomeCount = (assignment.outcomeIds || []).length;
+                            const instructions = assignment.instructions
+                                ? assignment.instructions.length > 150
+                                    ? `${assignment.instructions.slice(0, 150)}...`
+                                    : assignment.instructions
+                                : "No instructions yet. Add details to clarify expectations.";
+                            const submission = submissionByAssignment.get(assignment._id);
+                            const submittedLabel = submission
+                                ? new Date(submission.submittedAt).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                })
+                                : null;
+
+                            return (
+                                <div key={assignment._id} className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-slate-900 truncate">{assignment.name}</p>
+                                            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mt-0.5">
+                                                Posted {new Date(assignment._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                            </p>
+                                        </div>
+                                        <span className="shrink-0 px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                                            {dueAtLabel}
+                                        </span>
+                                    </div>
+
+                                    <p className="text-sm text-slate-600 leading-relaxed">{instructions}</p>
+
+                                    <div className="flex flex-wrap gap-1.5">
+                                        <span className="px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                                            {questionsCount} prompt{questionsCount === 1 ? "" : "s"}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[9px] font-bold uppercase tracking-widest text-emerald-700">
+                                            {outcomeCount} outcome{outcomeCount === 1 ? "" : "s"}
+                                        </span>
+                                        {assignment.maxResubmissions !== undefined && (
+                                            <span className="px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-[9px] font-bold uppercase tracking-widest text-amber-700">
+                                                {assignment.maxResubmissions} resubmissions
+                                            </span>
+                                        )}
+                                        {user.role === "student" && submittedLabel && (
+                                            <span className="px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-[9px] font-bold uppercase tracking-widest text-emerald-700">
+                                                Submitted {submittedLabel}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className={`px-2 py-1 rounded-md border text-[9px] font-black uppercase tracking-widest ${status.tone}`}>
+                                            {status.label}
+                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                onClick={() => setSelectedAssignmentFile(assignment)}
+                                                className="px-3 py-1.5 rounded-md border border-slate-200 text-[9px] font-bold uppercase tracking-widest text-slate-500 hover:bg-slate-50"
+                                            >
+                                                Open
+                                            </button>
+                                            {user.role === "teacher" && (
+                                                <button
+                                                    onClick={() => setEditingAssignmentFile(assignment)}
+                                                    className="px-3 py-1.5 rounded-md border border-emerald-200 text-[9px] font-bold uppercase tracking-widest text-emerald-700 hover:bg-emerald-50"
+                                                >
+                                                    Edit
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 )}
             </div>
 
-            {files.length > 0 && (
-                <FileGrid files={files} userRole={user.role} />
-            )}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-900 tracking-tight">Resources</h3>
+                        <p className="text-sm text-slate-500 font-medium">Reference docs, slides, and attached class materials.</p>
+                    </div>
+                    {user.role === "teacher" && (
+                        <UploadButton classId={classId} />
+                    )}
+                </div>
+
+                {resourceFiles.length === 0 ? (
+                    <div className="text-center py-10 rounded-md bg-slate-50 border border-dashed border-slate-200 text-slate-400 text-sm font-medium">
+                        No standalone resources uploaded yet.
+                    </div>
+                ) : (
+                    <FileGrid files={resourceFiles} userRole={user.role} />
+                )}
+            </div>
 
             {links.length > 0 && (
                 <div className="space-y-4">
@@ -1294,16 +1522,31 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
                 )}
             </div>
 
-            {files.length === 0 && links.length === 0 && (
+            {assignmentFiles.length === 0 && resourceFiles.length === 0 && links.length === 0 && (
                 <div className="text-center py-16 rounded-md bg-slate-50 border border-dashed border-slate-200">
                     <div className="flex justify-center mb-4 text-emerald-200">
                         <FileText className="w-10 h-10" />
                     </div>
-                    <p className="text-slate-400 font-bold italic text-sm">No resources shared yet in this workspace.</p>
+                    <p className="text-slate-400 font-bold italic text-sm">No classwork shared yet in this workspace.</p>
                     {user.role !== "student" && (
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-2">Upload resources or attach a link to get started</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mt-2">Post an assignment or upload a resource to get started</p>
                     )}
                 </div>
+            )}
+
+            {selectedAssignmentFile && (
+                <FileViewer
+                    file={selectedAssignmentFile}
+                    onClose={() => setSelectedAssignmentFile(null)}
+                    userRole={user.role}
+                />
+            )}
+
+            {editingAssignmentFile && (
+                <AssignmentModal
+                    file={editingAssignmentFile}
+                    onClose={() => setEditingAssignmentFile(null)}
+                />
             )}
 
             {isOutcomeOpen && (

@@ -43,6 +43,8 @@ body {
   --app-border: #e2e8f0;
   --app-accent: #10b981;
   --app-accent-weak: #d1fae5;
+  --app-accent-text: #047857;
+  --app-accent-border: #a7f3d0;
   --app-text: #0f172a;
   --app-text-muted: #475569;
 }
@@ -61,6 +63,8 @@ body {
   --app-border: #334155;
   --app-accent: #34d399;
   --app-accent-weak: rgba(16, 185, 129, 0.16);
+  --app-accent-text: #6ee7b7;
+  --app-accent-border: rgba(52, 211, 153, 0.35);
   --app-text: #f8fafc;
   --app-text-muted: #cbd5e1;
 }
@@ -151,7 +155,7 @@ body {
 [data-theme="moon"] .border-emerald-200,
 [data-theme="moon"] .border-emerald-300,
 [data-theme="moon"] .border-emerald-200\/50 {
-  border-color: rgba(52, 211, 153, 0.35) !important;
+  border-color: var(--app-accent-border) !important;
 }
 
 [data-theme="moon"] .border-rose-100,
@@ -183,7 +187,7 @@ body {
 }
 
 [data-theme="moon"] .text-emerald-800 {
-  color: #6ee7b7 !important;
+  color: var(--app-accent-text) !important;
 }
 
 [data-theme="moon"] .text-rose-700 {
@@ -218,7 +222,7 @@ body {
 }
 
 [data-theme="moon"] .hover\:text-emerald-600:hover {
-  color: #6ee7b7 !important;
+  color: var(--app-accent) !important;
 }
 
 [data-theme="moon"] .hover\:bg-rose-50:hover {
@@ -239,12 +243,12 @@ body {
 }
 
 [data-theme="moon"] .bg-emerald-600 {
-  background-color: #059669 !important;
+  background-color: var(--app-accent) !important;
 }
 
 [data-theme="moon"] .text-emerald-600,
 [data-theme="moon"] .text-emerald-700 {
-  color: #34d399 !important;
+  color: var(--app-accent) !important;
 }
 
 [data-theme="moon"] .from-violet-50 {
@@ -277,7 +281,7 @@ body {
 
 [data-theme="moon"] input[type="checkbox"],
 [data-theme="moon"] input[type="radio"] {
-  accent-color: #10b981;
+  accent-color: var(--app-accent);
 }
 
 [data-theme="moon"] .leaderboard-podium-card-first {
@@ -295,6 +299,46 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+.bg-emerald-600,
+.bg-emerald-500 {
+  background-color: var(--app-accent) !important;
+}
+
+.text-emerald-600,
+.text-emerald-700 {
+  color: var(--app-accent) !important;
+}
+
+.text-emerald-800 {
+  color: var(--app-accent-text) !important;
+}
+
+.border-emerald-100,
+.border-emerald-200,
+.border-emerald-300,
+.border-emerald-500,
+.border-emerald-200\/50 {
+  border-color: var(--app-accent-border) !important;
+}
+
+.hover\:bg-emerald-50:hover,
+.hover\:bg-emerald-100:hover {
+  background-color: var(--app-accent-weak) !important;
+}
+
+.hover\:text-emerald-600:hover {
+  color: var(--app-accent) !important;
+}
+
+.pill-tab-active {
+  background-color: var(--app-accent) !important;
+}
+
+.pill-tab-inactive:hover {
+  color: var(--app-accent) !important;
+  background-color: var(--app-accent-weak) !important;
 }
 
 h1,

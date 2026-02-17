@@ -6,6 +6,7 @@ import { ClassDashboard } from "./components/ClassDashboard";
 import { SettingsPage } from "./components/SettingsPage";
 import { Rocket, GraduationCap, Presentation } from "lucide-react";
 import { BookMascot } from "./components/BookMascot";
+import { ACCENT_COLOR_MAP, DEFAULT_ACCENT_COLOR, type AccentColorKey } from "./lib/accentColors";
 
 type ThemePreference = "device" | "sun" | "moon";
 
@@ -85,6 +86,17 @@ function DashboardContent({
   const classes = useQuery(api.myFunctions.getMyClasses) || [];
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [activePage, setActivePage] = useState<"dashboard" | "settings">("dashboard");
+
+  useEffect(() => {
+    if (!user) return;
+    const userAccent = (user as any).accentColor as AccentColorKey | undefined;
+    const selectedAccent = (userAccent || DEFAULT_ACCENT_COLOR) as AccentColorKey;
+    const accent = ACCENT_COLOR_MAP[selectedAccent] || ACCENT_COLOR_MAP[DEFAULT_ACCENT_COLOR];
+    document.documentElement.style.setProperty("--app-accent", accent.value);
+    document.documentElement.style.setProperty("--app-accent-weak", accent.weak);
+    document.documentElement.style.setProperty("--app-accent-text", accent.text);
+    document.documentElement.style.setProperty("--app-accent-border", accent.border);
+  }, [user]);
 
   if (user === undefined) return <LoadingScreen />;
   if (!user) return <LandingPage />;
