@@ -4,7 +4,7 @@ import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/re
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
 import { SettingsPage } from "./components/SettingsPage";
-import { Rocket, GraduationCap, Presentation } from "lucide-react";
+import { GraduationCap, Presentation, Paperclip, Globe, UsersRound, TrendingUp } from "lucide-react";
 import { BookMascot } from "./components/BookMascot";
 import { ACCENT_COLOR_MAP, DEFAULT_ACCENT_COLOR, type AccentColorKey } from "./lib/accentColors";
 
@@ -210,38 +210,298 @@ function OnboardingFlow({ user }: { user: any }) {
 
 function LandingPage() {
   const { signIn } = useAuthActions();
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+  const [isAboutPage, setIsAboutPage] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("page") === "about";
+  });
+
+  const features = [
+    {
+      icon: Paperclip,
+      title: "Upload Anything",
+      description:
+        "Upload assignments, lesson plans, PDFs, and resources in one place so every class stays organized.",
+    },
+    {
+      icon: Globe,
+      title: "Edit in the Browser",
+      description:
+        "Open and edit documents right inside EduOS with no installs, no switching tabs, and no extra tools.",
+    },
+    {
+      icon: UsersRound,
+      title: "Assignment Timers",
+      description:
+        "Give students built-in timers for focused work while teachers monitor progress live across the classroom.",
+    },
+    {
+      icon: TrendingUp,
+      title: "Designed for Focus",
+      description:
+        "A clean interface built for schools that keeps students on task and teachers in control.",
+    },
+  ];
+
+  const comparisonRows = [
+    ["✓ One workspace for class tasks", "✕ Multiple connected apps", "✕ Best inside Apple stack"],
+    ["✓ Browser editing built in", "✕ Depends on Docs/Slides/Sheets", "✕ Limited built-in editing"],
+    ["✓ Handles mixed file types", "✕ Optimized for Google formats", "✕ Best with Apple-native flow"],
+    ["✓ Assignment timers included", "✕ Needs add-ons/workarounds", "✕ Not timer-first workflow"],
+    ["✓ Built-in class messages", "✕ Messaging split across tools", "✕ Less central classroom messaging"],
+    ["✓ Live progress analytics", "✕ Reporting across separate pages", "✕ Analytics less assignment-focused"],
+    ["✓ Teacher activity insights", "✕ Depends on workspace integrations", "✕ Tied to Apple management data"],
+    ["✓ Student-friendly simple UI", "✕ More menus for new users", "✕ Best for managed devices"],
+    ["✓ Fast updates from school feedback", "✕ Large platform release cycles", "✕ Tied to Apple release pace"],
+    ["✓ Lightweight setup for small schools", "✕ Works best with Google-wide rollout", "✕ Works best with Apple admin setup"],
+  ];
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const about = new URLSearchParams(window.location.search).get("page") === "about";
+      setIsAboutPage(about);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setIsDarkMode(media.matches);
+    onChange();
+    if ("addEventListener" in media) {
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    }
+    const legacyMedia = media as MediaQueryList & {
+      addListener?: (listener: () => void) => void;
+      removeListener?: (listener: () => void) => void;
+    };
+    legacyMedia.addListener?.(onChange);
+    return () => legacyMedia.removeListener?.(onChange);
+  }, []);
+
+  const goToAboutPage = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("page", "about");
+    window.history.pushState({}, "", url);
+    setIsAboutPage(true);
+  };
+
+  const goToLandingPage = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("page");
+    window.history.pushState({}, "", url);
+    setIsAboutPage(false);
+  };
+
+  if (isAboutPage) {
+    return (
+      <div className={`marketing-landing min-h-screen bg-[#efefef] text-[#111111] ${isDarkMode ? "marketing-dark" : ""}`}>
+        <header className="mx-auto w-full max-w-[1200px] px-5 md:px-12 pt-6 md:pt-5">
+          <div className="flex items-center justify-between gap-4">
+            <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain" />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={goToLandingPage}
+                className="rounded-full border border-[#cfcfcf] px-5 py-2 text-sm font-semibold text-[#222222]"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => {
+                  void signIn("google");
+                }}
+                className="rounded-full bg-[var(--app-accent)] px-6 py-2.5 text-sm font-semibold text-white"
+              >
+                Sign in with Google
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-[1200px] px-5 pb-20 pt-16 md:px-12 md:pt-24">
+          <div className="mx-auto mt-2 max-w-[980px] rounded-[24px] border border-[#d7d7d7] bg-[#f4f4f4] p-8 md:p-12">
+            <article className="space-y-10 text-left">
+              <section>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">Connect</p>
+                <h2 className="mt-3 text-[36px] leading-[1.05] md:text-[48px]">Connect with us</h2>
+                <p className="mt-4 text-[19px] leading-[1.6] text-[#525252] md:text-[22px]">
+                  Mail us for bug reports, feature requests, school feedback, or partnership ideas.
+                </p>
+                <a
+                  href="mailto:sriramramnath2011@gmail.com"
+                  className="mt-5 inline-flex rounded-full bg-[var(--app-accent)] px-6 py-3 text-sm font-semibold text-white"
+                >
+                  Mail Us
+                </a>
+              </section>
+
+              <section>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">Story</p>
+                <p className="mt-4 text-[19px] leading-[1.6] text-[#525252] md:text-[22px]">
+                  Many classroom tools are powerful but fragmented for daily use. EduOS is a student-built alternative
+                  aiming for speed, clarity, and practical classroom defaults that work in real school conditions.
+                </p>
+              </section>
+
+              <section>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">Core Capabilities</p>
+                <ul className="mt-4 grid gap-3 text-[19px] leading-[1.5] text-[#4f4f4f] md:text-[21px]">
+                  <li>• Assignment and file workflows in one interface</li>
+                  <li>• Browser-based editing for common classroom documents</li>
+                  <li>• Support for mixed file types from different school systems</li>
+                  <li>• Simple UI focused on teacher and student day-to-day tasks</li>
+                </ul>
+              </section>
+
+              <section>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">Project Status</p>
+                <p className="mt-4 text-[19px] leading-[1.6] text-[#525252] md:text-[22px]">
+                  EduOS is actively evolving and currently maintained by a student developer. Features are prioritized based
+                  on real usage feedback, classroom friction points, and practical impact.
+                </p>
+              </section>
+
+              <section>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#6b6b6b]">Support and Feedback</p>
+                <p className="mt-4 text-[19px] leading-[1.6] text-[#525252] md:text-[22px]">
+                  If you find bugs, want to request features, or want to share classroom feedback, email:
+                </p>
+                <p className="mt-4 text-[20px] font-semibold md:text-[24px]">sriramramnath2011@gmail.com</p>
+              </section>
+            </article>
+          </div>
+
+          <div className="mt-12 flex justify-center">
+            <button
+              onClick={() => {
+                void signIn("google");
+              }}
+              className="w-full max-w-[540px] rounded-full bg-[var(--app-accent)] py-4 text-sm font-semibold text-white"
+            >
+              Sign in with Google
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
-      {/* Background elements */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-100/30 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-
-      <div className="relative z-10 max-w-4xl space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-        <div className="inline-flex items-center gap-3 px-6 py-2 bg-white shadow-sm rounded-md border border-slate-200">
-          <span className="text-slate-900 font-bold text-[10px] uppercase tracking-widest">EduOS Infrastructure</span>
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_emerald]" />
+    <div className={`marketing-landing min-h-screen bg-[#efefef] text-[#111111] ${isDarkMode ? "marketing-dark" : ""}`}>
+      <header className="sticky top-0 z-40 border-b border-[#d8d8d8] bg-[#efefef]/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1520px] items-center justify-between gap-4 px-5 py-3 md:px-12">
+          <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain" />
+          <nav className="hidden md:flex items-center gap-12 text-[15px] font-medium">
+            <a href="#benefits">Benefits</a>
+            <a href="#why">Why us?</a>
+            <a href="#contact">Contact Us</a>
+          </nav>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={goToAboutPage}
+              className="rounded-full border border-[#cfcfcf] px-5 py-2 text-sm font-semibold text-[#222222]"
+            >
+              Connect With Us
+            </button>
+            <button
+              onClick={() => {
+                void signIn("google");
+              }}
+              className="rounded-full bg-[var(--app-accent)] px-6 py-2.5 text-sm font-semibold text-white"
+            >
+              Sign in with Google
+            </button>
+          </div>
         </div>
+      </header>
 
-        <h1 className="text-6xl md:text-8xl font-bold text-slate-900 leading-[0.9] tracking-tighter">
-          Education <br />
-          <span className="text-emerald-600">Perfected.</span>
+      <section className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-12 md:pt-16">
+        <h1 className="mx-auto max-w-[1320px] text-center text-[52px] leading-[0.95] tracking-[-0.03em] md:text-[108px]">
+          A school workspace built
+          <br />
+          for real classrooms.
         </h1>
 
-        <p className="text-xl text-slate-500 font-medium max-w-xl mx-auto leading-relaxed">
-          The high-performance platform for digital classrooms. Fast, minimalist, and built for the modern educator.
+        <div className="relative mt-10 md:mt-16">
+          <div className="absolute left-0 right-0 bottom-0 h-[42%] rounded-[24px] bg-[var(--app-accent)] opacity-30" />
+          <img
+            src="/assets/Phone+Tablet.png"
+            alt="EduOS preview"
+            className="relative z-10 mx-auto w-full max-w-[1120px] rounded-[24px]"
+          />
+        </div>
+      </section>
+
+      <section id="benefits" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-14 md:pt-16">
+        <div className="h-px w-full bg-[#d9d9d9]" />
+        <p className="mt-12 text-center text-[14px] tracking-[0.08em] text-[#6a7558]">Benefits</p>
+        <h2 className="mx-auto mt-6 max-w-[1320px] text-center text-[52px] leading-[1.02] tracking-[-0.02em] md:text-[69px]">
+          EduOS keeps assignments, files, and editing in one simple space, without the clutter or heavy software.
+        </h2>
+        <p className="mt-8 text-center text-[24px] text-[#7a7a7a]">
+          EduOS gives teachers clear progress visibility without data overload.
         </p>
 
-        <div className="pt-4">
-          <button
-            onClick={() => {
-              void signIn("google");
-            }}
-            className="px-8 py-4 bg-emerald-600 text-white rounded-md font-bold text-lg shadow-sm hover:bg-emerald-700 transition-all flex items-center gap-3 mx-auto"
-          >
-            <Rocket className="w-6 h-6" /> Start with Google
-          </button>
-          <p className="mt-6 text-slate-400 font-bold uppercase tracking-widest text-[9px]">Zero-configuration deployment</p>
+        <div className="mt-14 grid gap-8 md:grid-cols-4">
+          {features.map(({ icon: Icon, title, description }) => (
+            <article key={title} className="border-t border-[#dddddd] pt-8 text-center">
+              <Icon className="mx-auto h-5 w-5" strokeWidth={1.8} />
+              <h3 className="mt-6 text-[31px] leading-[1.1] tracking-[-0.015em]">{title}</h3>
+              <p className="mx-auto mt-5 max-w-[320px] text-[24px] leading-[1.35] text-[#666666]">{description}</p>
+            </article>
+          ))}
         </div>
-      </div>
+
+        <div className="mt-14 md:mt-16 overflow-hidden rounded-[28px]">
+          <img
+            src="/assets/background.png"
+            alt="Landscape"
+            className="h-[360px] w-full object-cover md:h-[760px]"
+          />
+        </div>
+      </section>
+
+      <section id="why" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-14 md:pt-20">
+        <div className="overflow-hidden rounded-[24px] border border-[#d7d7d7] bg-[#efefef]">
+          <div className="grid grid-cols-1 md:grid-cols-3">
+            <div className="rounded-t-[24px] md:rounded-none md:rounded-l-[24px] border-b border-[#d7d7d7] bg-[#f3f3f3] md:border-b-0 md:shadow-[0_0_0_1px_#dddddd,0_8px_20px_rgba(0,0,0,0.05)]">
+              <h3 className="px-8 py-8 text-center text-[43px]">EduOS</h3>
+            </div>
+            <div className="border-b border-[#d7d7d7] px-8 py-8 text-center text-[43px] md:border-b-0 md:border-l">Google Classroom</div>
+            <div className="px-8 py-8 text-center text-[43px] md:border-l">Apple Classroom</div>
+          </div>
+          {comparisonRows.map((row, index) => (
+            <div key={index} className="grid grid-cols-1 border-t border-[#d7d7d7] md:grid-cols-3">
+              <div className="px-8 py-8 text-[22px] md:border-r border-[#d7d7d7]">{row[0]}</div>
+              <div className="px-8 py-8 text-[22px] md:border-r border-[#d7d7d7]">{row[1]}</div>
+              <div className="px-8 py-8 text-[22px]">{row[2]}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="contact" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 py-20 md:py-24">
+        <div className="h-px w-full bg-[#d9d9d9]" />
+        <div className="mx-auto max-w-[900px] pt-20 text-center">
+          <h2 className="text-[56px] leading-[1] md:text-[72px]">Connect with us</h2>
+          <p className="mx-auto mt-10 max-w-[760px] text-[21px] leading-[1.5] text-[#7a7a7a]">
+            Schedule a quick call to see how EduOS can simplify classroom workflows for your school.
+          </p>
+          <button
+            onClick={goToAboutPage}
+            className="mt-10 w-full max-w-[740px] rounded-full bg-[var(--app-accent)] py-5 text-[15px] font-semibold text-white"
+          >
+            Connect With Us ›
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

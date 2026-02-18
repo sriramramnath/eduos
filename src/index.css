@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -417,4 +417,105 @@ h6 {
     opacity: 0.8;
     transform: scale(0.98);
   }
+}
+
+.marketing-landing {
+  font-family: "Manrope", sans-serif;
+  letter-spacing: -0.01em;
+  --m-bg: #efefef;
+  --m-surface: #f4f4f4;
+  --m-surface-strong: #f3f3f3;
+  --m-border: #d7d7d7;
+  --m-border-soft: #dddddd;
+  --m-text: #111111;
+  --m-muted: #575757;
+  --m-muted-soft: #7a7a7a;
+  --m-accent-bg: #99aa84;
+  background: var(--m-bg) !important;
+  color: var(--m-text) !important;
+}
+
+.marketing-landing h1,
+.marketing-landing h2,
+.marketing-landing h3,
+.marketing-landing header span {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 600;
+}
+
+.marketing-dark {
+  --m-bg: #0f1622;
+  --m-surface: #1a2433;
+  --m-surface-strong: #1f2b3d;
+  --m-border: #33475f;
+  --m-border-soft: #3a4f68;
+  --m-text: #f5f7fb;
+  --m-muted: #c9d3e2;
+  --m-muted-soft: #acb9cc;
+  --m-accent-bg: #5d7150;
+}
+
+.marketing-dark .bg-\[\#efefef\] {
+  background-color: var(--m-bg) !important;
+}
+
+.marketing-dark .bg-\[\#efefef\]\/90 {
+  background-color: rgba(15, 22, 34, 0.9) !important;
+}
+
+.marketing-dark .bg-\[\#f4f4f4\],
+.marketing-dark .bg-\[\#f3f3f3\] {
+  background-color: var(--m-surface) !important;
+}
+
+.marketing-dark .bg-\[\#99aa84\] {
+  background-color: var(--m-accent-bg) !important;
+}
+
+.marketing-dark .border-\[\#d8d8d8\],
+.marketing-dark .border-\[\#d7d7d7\],
+.marketing-dark .border-\[\#cfcfcf\],
+.marketing-dark .border-\[\#dddddd\] {
+  border-color: var(--m-border) !important;
+}
+
+.marketing-dark .bg-\[\#d9d9d9\] {
+  background-color: var(--m-border) !important;
+}
+
+.marketing-dark .text-\[\#111111\] {
+  color: var(--m-text) !important;
+}
+
+.marketing-dark .text-\[\#575757\],
+.marketing-dark .text-\[\#525252\],
+.marketing-dark .text-\[\#4f4f4f\],
+.marketing-dark .text-\[\#6b6b6b\],
+.marketing-dark .text-\[\#7a7a7a\],
+.marketing-dark .text-\[\#6a7558\] {
+  color: var(--m-muted) !important;
+}
+
+.marketing-dark .text-\[\#222222\] {
+  color: var(--m-text) !important;
+}
+
+.marketing-dark .text-\[\#666666\] {
+  color: var(--m-muted-soft) !important;
+}
+
+.marketing-dark .md\:shadow-\[0_0_0_1px_\#dddddd\,0_8px_20px_rgba\(0\,0\,0\,0\.05\)\] {
+  box-shadow: 0 0 0 1px var(--m-border-soft), 0 8px 20px rgba(0, 0, 0, 0.28) !important;
+}
+
+.marketing-dark a {
+  color: var(--m-text);
+}
+
+.marketing-dark #benefits article {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+  border-radius: 14px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-bottom: 1rem;
 }
