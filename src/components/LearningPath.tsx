@@ -140,7 +140,7 @@ export function LearningPath({ classId, user }: LearningPathProps) {
   const handleComplete = async (lessonId: Id<"lessons">) => {
     const totalQuestions = selectedTask?.questions?.length || 0;
     const masteryScore = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : undefined;
-    await completeLesson({ lessonId, masteryScore });
+    await completeLesson({ classId, lessonId, masteryScore });
   };
 
   const handleDeleteTask = async (lessonId: Id<"lessons">) => {

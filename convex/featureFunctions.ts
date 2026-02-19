@@ -122,6 +122,57 @@ async function bumpActivity(ctx: MutationCtx, user: any) {
   });
 }
 
+async function updateClassStats(
+  ctx: MutationCtx,
+  classId: Id<"classes">,
+  userEmail: string,
+  xpDelta: number
+) {
+  const db: any = ctx.db;
+  const now = Date.now();
+  const existing = await db
+    .query("userClassStats")
+    .withIndex("class_user", (q: any) => q.eq("classId", classId).eq("userEmail", userEmail))
+    .first();
+
+  const previousStreak = existing?.streak || 0;
+  const previousLastActive = existing?.lastActiveAt;
+  let nextStreak = previousStreak;
+
+  if (!previousLastActive) {
+    nextStreak = 1;
+  } else if (sameDay(now, previousLastActive)) {
+    nextStreak = previousStreak;
+  } else if (now - previousLastActive <= DAY_MS * 2) {
+    nextStreak = previousStreak + 1;
+  } else {
+    nextStreak = 1;
+  }
+
+  const nextXp = Math.max(0, (existing?.xp || 0) + xpDelta);
+  const nextLevel = Math.max(1, Math.floor(nextXp / 100) + 1);
+
+  if (existing) {
+    await db.patch(existing._id, {
+      xp: nextXp,
+      streak: nextStreak,
+      lastActiveAt: now,
+      level: nextLevel,
+    });
+  } else {
+    await db.insert("userClassStats", {
+      classId,
+      userEmail,
+      xp: nextXp,
+      streak: nextStreak,
+      lastActiveAt: now,
+      level: nextLevel,
+    });
+  }
+
+  return { xp: nextXp, streak: nextStreak, level: nextLevel };
+}
+
 async function getNotificationPref(ctx: Ctx, userEmail: string) {
   const db: any = ctx.db;
   return await db
@@ -374,7 +425,7 @@ export const requestJoinByClassCode = mutation({
   args: { code: v.string() },
   handler: async (ctx, { code }) => {
     const user = await requireUser(ctx);
-    if (user.role !== "student") throw new Error("Only students can request access");
+    if (user.role !== "student") throw new Error("Only students can join classes");
 
     const db: any = ctx.db;
     const classDoc = await db
@@ -383,6 +434,7 @@ export const requestJoinByClassCode = mutation({
       .first();
 
     if (!classDoc) throw new Error("Class not found");
+    if (classDoc.archived) throw new Error("Class is archived");
 
     const existingMember = await db
       .query("classMembers")
@@ -394,32 +446,65 @@ export const requestJoinByClassCode = mutation({
       return { status: "already_member" };
     }
 
-    const existingRequest = await db
+    const existingRequests = await db
       .query("joinRequests")
       .withIndex("class", (q: any) => q.eq("classId", classDoc._id))
       .filter((q: any) => q.eq(q.field("studentId"), user.email))
-      .first();
+      .collect();
 
-    if (existingRequest && existingRequest.status === "pending") {
-      return { status: "pending" };
-    }
-
-    await db.insert("joinRequests", {
+    await db.insert("classMembers", {
       classId: classDoc._id,
       studentId: user.email,
-      status: "pending",
-      requestedAt: Date.now(),
+      joinedAt: Date.now(),
     });
+
+    for (const request of existingRequests) {
+      await db.delete(request._id);
+    }
 
     await createNotification(ctx, {
       userEmail: classDoc.teacherId,
       type: "announcement",
-      title: "New Join Request",
-      body: `${user.name || user.email} requested to join ${classDoc.name}`,
+      title: "Student Joined Class",
+      body: `${user.name || user.email} joined ${classDoc.name} using class code`,
       classId: classDoc._id,
     });
 
-    return { status: "submitted" };
+    return { status: "joined" };
+  },
+});
+
+export const removeClassMember = mutation({
+  args: {
+    classId: v.id("classes"),
+    studentId: v.string(),
+  },
+  handler: async (ctx, { classId, studentId }) => {
+    const user = await requireUser(ctx);
+    await assertTeacherOfClass(ctx, classId, user.email);
+
+    const db: any = ctx.db;
+    const membership = await db
+      .query("classMembers")
+      .withIndex("class", (q: any) => q.eq("classId", classId))
+      .filter((q: any) => q.eq(q.field("studentId"), studentId))
+      .first();
+
+    if (!membership) {
+      return { removed: false };
+    }
+
+    await db.delete(membership._id);
+
+    await createNotification(ctx, {
+      userEmail: studentId,
+      type: "announcement",
+      title: "Removed From Class",
+      body: `You were removed from the class by your teacher.`,
+      classId,
+    });
+
+    return { removed: true };
   },
 });
 
@@ -1003,6 +1088,7 @@ export const completeAdvancedQuiz = mutation({
       await db.patch(user._id, {
         xp: (user.xp || 0) + xpAward,
       });
+      await updateClassStats(ctx, quiz.classId, user.email, xpAward);
     }
 
     await bumpActivity(ctx, user);
@@ -1279,17 +1365,17 @@ export const getClassAnalyticsOverview = query({
     const quizSet = new Set(quizzes.map((quiz: any) => quiz._id));
     const classQuizSubs = quizSubs.filter((submission: any) => quizSet.has(submission.quizId));
 
-    const users = await Promise.all(
+    const classStats = await Promise.all(
       members.map((member: any) =>
         db
-          .query("users")
-          .withIndex("email", (q: any) => q.eq("email", member.studentId))
+          .query("userClassStats")
+          .withIndex("class_user", (q: any) => q.eq("classId", classId).eq("userEmail", member.studentId))
           .first()
       )
     );
 
-    const averageXp = users.length
-      ? users.reduce((sum: number, profile: any) => sum + (profile?.xp || 0), 0) / users.length
+    const averageXp = classStats.length
+      ? classStats.reduce((sum: number, profile: any) => sum + (profile?.xp || 0), 0) / classStats.length
       : 0;
 
     const averageQuizScore = classQuizSubs.length
@@ -1939,24 +2025,50 @@ export const getGamificationProfile = query({
     const user = await requireUser(ctx as any);
     const db: any = ctx.db;
 
-    const badges = await db
+    const badges = (await db
       .query("userBadges")
       .withIndex("user", (q: any) => q.eq("userEmail", user.email))
-      .collect();
+      .collect())
+      .filter((entry: any) => !classId || !entry.classId || entry.classId === classId);
 
     const badgeDefs = await db.query("badges").collect();
     const badgeMap = new Map(badgeDefs.map((badge: any) => [badge.code, badge]));
 
-    const recentQuizzes = await db
-      .query("quizSubmissions")
-      .withIndex("student", (q: any) => q.eq("studentId", user.email))
-      .collect();
+    let quizCount = 0;
+    let xp = user.xp || 0;
+    let streak = user.streak || 0;
+    let level = user.level || Math.max(1, Math.floor((user.xp || 0) / 100) + 1);
 
-    const streak = user.streak || 0;
-    const level = user.level || Math.max(1, Math.floor((user.xp || 0) / 100) + 1);
+    if (classId) {
+      const classStat = await db
+        .query("userClassStats")
+        .withIndex("class_user", (q: any) => q.eq("classId", classId).eq("userEmail", user.email))
+        .first();
+
+      xp = classStat?.xp || 0;
+      streak = classStat?.streak || 0;
+      level = classStat?.level || Math.max(1, Math.floor(xp / 100) + 1);
+
+      const quizzes = await db
+        .query("quizzes")
+        .withIndex("class", (q: any) => q.eq("classId", classId))
+        .collect();
+      const classQuizIds = new Set(quizzes.map((quiz: any) => quiz._id));
+      const recentQuizzes = await db
+        .query("quizSubmissions")
+        .withIndex("student", (q: any) => q.eq("studentId", user.email))
+        .collect();
+      quizCount = recentQuizzes.filter((submission: any) => classQuizIds.has(submission.quizId)).length;
+    } else {
+      const recentQuizzes = await db
+        .query("quizSubmissions")
+        .withIndex("student", (q: any) => q.eq("studentId", user.email))
+        .collect();
+      quizCount = recentQuizzes.length;
+    }
 
     return {
-      xp: user.xp || 0,
+      xp,
       streak,
       level,
       classId,
@@ -1964,7 +2076,7 @@ export const getGamificationProfile = query({
         ...entry,
         badge: badgeMap.get(entry.badgeCode) || null,
       })),
-      quizCount: recentQuizzes.length,
+      quizCount,
     };
   },
 });

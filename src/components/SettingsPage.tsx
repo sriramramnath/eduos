@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { LogOut, ArrowLeft, User, Shield, Bell, Sparkles, Sun, Moon, Monitor, Link2, RefreshCw, CheckCircle2 } from "lucide-react";
@@ -30,12 +30,23 @@ export function SettingsPage({
   const upsertIntegrationConnection = useMutation(featureApi.upsertIntegrationConnection);
   const triggerIntegrationSync = useMutation(featureApi.triggerIntegrationSync);
   const updateAccentColor = useMutation((api as any).myFunctions.updateAccentColor);
+  const updateDisplayName = useMutation((api as any).myFunctions.updateDisplayName);
 
   const [optimisticPrefs, setOptimisticPrefs] = useState<Record<string, boolean>>({});
   const [accentSaving, setAccentSaving] = useState(false);
   const [optimisticAccent, setOptimisticAccent] = useState<AccentColorKey | null>(null);
+  const [displayNameDraft, setDisplayNameDraft] = useState(user.name || "");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
   const prefs = serverPrefs ? { ...serverPrefs, ...optimisticPrefs } : null;
   const selectedAccent = (optimisticAccent || user.accentColor || DEFAULT_ACCENT_COLOR) as AccentColorKey;
+  const normalizedDraft = displayNameDraft.replace(/\s+/g, " ").trim();
+  const canSaveName = normalizedDraft.length > 0 && normalizedDraft !== (user.name || "") && !nameSaving;
+
+  useEffect(() => {
+    setDisplayNameDraft(user.name || "");
+  }, [user.name]);
 
   const savePrefs = async (patch: Record<string, boolean>) => {
     if (!prefs) return;
@@ -48,6 +59,22 @@ export function SettingsPage({
       directMessages: !!next.directMessages,
       dueReminders: !!next.dueReminders,
     });
+  };
+
+  const saveDisplayName = async () => {
+    if (!canSaveName) return;
+    setNameSaving(true);
+    setNameError(null);
+    setNameSaved(false);
+    try {
+      await updateDisplayName({ name: normalizedDraft });
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 1500);
+    } catch (error: any) {
+      setNameError(error?.message || "Failed to update display name.");
+    } finally {
+      setNameSaving(false);
+    }
   };
 
   const getConnection = (provider: string) => integrations.find((item: any) => item.provider === provider);
@@ -88,9 +115,54 @@ export function SettingsPage({
               className="w-12 h-12 rounded-xl border border-slate-200 shadow-sm"
               alt={user.name}
             />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-base font-bold text-slate-900">{user.name}</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user.email}</p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <label htmlFor="display-name" className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              Display name
+            </label>
+            <input
+              id="display-name"
+              type="text"
+              value={displayNameDraft}
+              onChange={(e) => {
+                setDisplayNameDraft(e.target.value);
+                setNameError(null);
+                setNameSaved(false);
+              }}
+              maxLength={80}
+              placeholder="Enter display name"
+              className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-slate-100 placeholder:text-slate-400 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-900/40"
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${nameError ? "text-rose-500" : nameSaved ? "text-emerald-600" : "text-slate-400"}`}>
+                {nameError ? nameError : nameSaved ? "Saved" : " "}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setDisplayNameDraft(user.name || "");
+                    setNameError(null);
+                    setNameSaved(false);
+                  }}
+                  disabled={nameSaving || displayNameDraft === (user.name || "")}
+                  className="px-3 py-1.5 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    void saveDisplayName();
+                  }}
+                  disabled={!canSaveName}
+                  className="px-3 py-1.5 rounded-md border border-emerald-200 text-[10px] font-bold uppercase tracking-widest text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {nameSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

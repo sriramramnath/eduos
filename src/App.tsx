@@ -4,7 +4,7 @@ import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/re
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
 import { SettingsPage } from "./components/SettingsPage";
-import { GraduationCap, Presentation, Paperclip, Globe, UsersRound, TrendingUp } from "lucide-react";
+import { GraduationCap, Presentation, Paperclip, Globe, UsersRound, TrendingUp, House, Settings, Info, LogIn, ArrowLeft } from "lucide-react";
 import { BookMascot } from "./components/BookMascot";
 import { ACCENT_COLOR_MAP, DEFAULT_ACCENT_COLOR, type AccentColorKey } from "./lib/accentColors";
 
@@ -104,12 +104,14 @@ function DashboardContent({
   // role check for onboarding
   if (!user.role) return <OnboardingFlow user={user} />;
 
+  const showMobileDashboardNav = !selectedClass;
+
   return (
     <div className="flex flex-col min-h-screen bg-transparent overflow-hidden relative">
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Main Content Area */}
-        <main className={`flex-1 overflow-auto scrollbar-hide ${selectedClass ? 'p-0' : 'p-6 md:p-12'}`}>
-          <div className="max-w-7xl mx-auto min-h-full pb-20 md:pb-0">
+        <main className={`flex-1 overflow-auto scrollbar-hide ${selectedClass ? 'p-0' : 'p-4 sm:p-6 md:p-12'} ${showMobileDashboardNav ? "pb-24 md:pb-0" : ""}`}>
+          <div className={`max-w-7xl mx-auto min-h-full ${showMobileDashboardNav ? "pb-16 md:pb-0" : ""}`}>
             <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
               {activePage === "settings" ? (
                 <SettingsPage
@@ -134,6 +136,31 @@ function DashboardContent({
           </div>
         </main>
       </div>
+      {showMobileDashboardNav && (
+        <nav
+          className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-3 right-3 z-50 rounded-2xl border border-slate-200 bg-white/90 backdrop-blur-xl p-2 shadow-[0_10px_30px_rgba(15,23,42,0.14)]"
+          aria-label="Mobile navigation"
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setActivePage("dashboard")}
+              aria-label="Home"
+              title="Home"
+              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold transition-colors ${activePage === "dashboard" ? "bg-emerald-600 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+            >
+              <House className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setActivePage("settings")}
+              aria-label="Settings"
+              title="Settings"
+              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold transition-colors ${activePage === "settings" ? "bg-emerald-600 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
@@ -303,7 +330,7 @@ function LandingPage() {
   if (isAboutPage) {
     return (
       <div className={`marketing-landing min-h-screen bg-[#efefef] text-[#111111] ${isDarkMode ? "marketing-dark" : ""}`}>
-        <header className="mx-auto w-full max-w-[1200px] px-5 md:px-12 pt-6 md:pt-5">
+        <header className="hidden md:block mx-auto w-full max-w-[1200px] px-5 md:px-12 pt-6 md:pt-5">
           <div className="flex items-center justify-between gap-4">
             <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain" />
             <div className="flex items-center gap-3">
@@ -325,7 +352,7 @@ function LandingPage() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1200px] px-5 pb-20 pt-16 md:px-12 md:pt-24">
+        <main className="mx-auto w-full max-w-[1200px] px-5 pb-28 md:pb-20 pt-12 md:pt-24 md:px-12">
           <div className="mx-auto mt-2 max-w-[980px] rounded-[24px] border border-[#d7d7d7] bg-[#f4f4f4] p-8 md:p-12">
             <article className="space-y-10 text-left">
               <section>
@@ -389,13 +416,35 @@ function LandingPage() {
             </button>
           </div>
         </main>
+        <nav className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-3 right-3 z-50 rounded-2xl border border-[#d7d7d7] bg-[#f4f4f4]/95 backdrop-blur p-2 shadow-[0_10px_30px_rgba(15,23,42,0.14)]">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={goToLandingPage}
+              aria-label="Home"
+              title="Home"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white border border-[#d7d7d7] px-4 py-3 text-xs font-semibold text-[#222222]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                void signIn("google");
+              }}
+              aria-label="Sign in"
+              title="Sign in"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-3 text-xs font-semibold text-white"
+            >
+              <LogIn className="w-4 h-4" />
+            </button>
+          </div>
+        </nav>
       </div>
     );
   }
 
   return (
     <div className={`marketing-landing min-h-screen bg-[#efefef] text-[#111111] ${isDarkMode ? "marketing-dark" : ""}`}>
-      <header className="sticky top-0 z-40 border-b border-[#d8d8d8] bg-[#efefef]/90 backdrop-blur">
+      <header className="hidden md:block sticky top-0 z-40 border-b border-[#d8d8d8] bg-[#efefef]/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1520px] items-center justify-between gap-4 px-5 py-3 md:px-12">
           <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain" />
           <nav className="hidden md:flex items-center gap-12 text-[15px] font-medium">
@@ -422,7 +471,7 @@ function LandingPage() {
         </div>
       </header>
 
-      <section className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-12 md:pt-16">
+      <section id="hero" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-8 md:pt-16">
         <h1 className="mx-auto max-w-[1320px] text-center text-[52px] leading-[0.95] tracking-[-0.03em] md:text-[108px]">
           A school workspace built
           <br />
@@ -487,7 +536,7 @@ function LandingPage() {
         </div>
       </section>
 
-      <section id="contact" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 py-20 md:py-24">
+      <section id="contact" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 py-20 pb-28 md:pb-24 md:py-24">
         <div className="h-px w-full bg-[#d9d9d9]" />
         <div className="mx-auto max-w-[900px] pt-20 text-center">
           <h2 className="text-[56px] leading-[1] md:text-[72px]">Connect with us</h2>
@@ -502,6 +551,44 @@ function LandingPage() {
           </button>
         </div>
       </section>
+      <nav className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-3 right-3 z-50 rounded-2xl border border-[#d7d7d7] bg-[#f4f4f4]/95 backdrop-blur p-2 shadow-[0_10px_30px_rgba(15,23,42,0.14)]">
+        <div className="grid grid-cols-4 gap-2">
+          <a
+            href="#benefits"
+            aria-label="Benefits"
+            title="Benefits"
+            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white border border-[#d7d7d7] px-2 py-2.5 text-[10px] font-semibold text-[#222222]"
+          >
+            <House className="w-4 h-4" />
+          </a>
+          <a
+            href="#why"
+            aria-label="Why"
+            title="Why"
+            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white border border-[#d7d7d7] px-2 py-2.5 text-[10px] font-semibold text-[#222222]"
+          >
+            <Info className="w-4 h-4" />
+          </a>
+          <a
+            href="#contact"
+            aria-label="Contact"
+            title="Contact"
+            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white border border-[#d7d7d7] px-2 py-2.5 text-[10px] font-semibold text-[#222222]"
+          >
+            <Paperclip className="w-4 h-4" />
+          </a>
+          <button
+            onClick={() => {
+              void signIn("google");
+            }}
+            aria-label="Sign in"
+            title="Sign in"
+            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[var(--app-accent)] px-2 py-2.5 text-[10px] font-semibold text-white"
+          >
+            <LogIn className="w-4 h-4" />
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

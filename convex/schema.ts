@@ -117,9 +117,19 @@ export default defineSchema({
 
   userProgress: defineTable({
     userId: v.string(), // email or user lookup
+    classId: v.optional(v.id("classes")),
     lessonId: v.id("lessons"),
     completedAt: v.number(),
-  }).index("user", ["userId"]).index("lesson", ["lessonId"]),
+  }).index("user", ["userId"]).index("lesson", ["lessonId"]).index("class", ["classId"]),
+
+  userClassStats: defineTable({
+    classId: v.id("classes"),
+    userEmail: v.string(),
+    xp: v.number(),
+    streak: v.number(),
+    lastActiveAt: v.optional(v.number()),
+    level: v.number(),
+  }).index("class", ["classId"]).index("user", ["userEmail"]).index("class_user", ["classId", "userEmail"]),
 
   announcements: defineTable({
     classId: v.id("classes"),

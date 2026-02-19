@@ -62,10 +62,8 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass,
 
     try {
       const result = await requestJoinByClassCode({ code });
-      if (result?.status === "submitted") {
-        setJoinMessage("Join request sent to teacher.");
-      } else if (result?.status === "pending") {
-        setJoinMessage("You already have a pending request.");
+      if (result?.status === "joined") {
+        setJoinMessage("Joined class.");
       } else if (result?.status === "already_member") {
         setJoinMessage("You are already in this class.");
       } else {
@@ -115,12 +113,12 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass,
 
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-1">Classes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mb-1">Classes</h1>
           <p className="text-sm text-slate-500 font-medium">Manage your learning workspaces.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowArchived((prev) => !prev)}
             className="px-4 py-2 rounded-md border border-slate-200 font-bold text-[11px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
@@ -130,7 +128,7 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass,
           </button>
           <button
             onClick={onOpenSettings}
-            className="px-4 py-2 rounded-md border border-slate-200 font-bold text-[11px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2"
+            className="hidden md:flex px-4 py-2 rounded-md border border-slate-200 font-bold text-[11px] uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all items-center gap-2"
           >
             <Settings className="w-3.5 h-3.5" /> Settings
           </button>
@@ -315,7 +313,7 @@ export function ClassDashboard({ user, classes, selectedClass, setSelectedClass,
           <div className="bg-white rounded-md p-8 max-w-xs w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-200 border border-slate-200">
             <div className="space-y-1 text-center">
               <h3 className="text-xl font-bold text-slate-900 tracking-tight">Join Class</h3>
-              <p className="text-slate-500 font-medium text-xs">Invite code for instant join or class code for teacher approval</p>
+              <p className="text-slate-500 font-medium text-xs">Use either an invite code or class code to join</p>
             </div>
 
             <input

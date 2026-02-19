@@ -1,8 +1,9 @@
-import { KeyboardEvent, useMemo, useState } from "react";
+import { KeyboardEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import {
+  ChevronLeft,
   MessageSquareMore,
   Search,
   SendHorizontal,
@@ -13,11 +14,66 @@ const EMPTY_ARRAY: any[] = [];
 interface MessagesViewProps {
   classId: Id<"classes">;
   user: any;
+  initialPeerEmail?: string;
 }
 
 function formatThreadTime(timestamp?: number) {
   if (!timestamp) return "";
+
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isSameDay = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isSameDay) {
+    return date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  if (isYesterday) {
+    return "Yesterday";
+  }
+
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatMessageTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatMessageDateHeader(timestamp: number) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isSameDay = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  if (isSameDay) return "Today";
+  if (isYesterday) return "Yesterday";
+
+  return date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatHeaderDateTime(timestamp?: number) {
+  if (!timestamp) return "No messages yet";
+  return new Date(timestamp).toLocaleString([], {
+    month: "short",
+    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -27,7 +83,17 @@ function getAvatarFallback(nameOrEmail: string) {
   return (nameOrEmail || "?").slice(0, 1).toUpperCase();
 }
 
-export function MessagesView({ classId, user }: MessagesViewProps) {
+function getAvatarUrl(person: any) {
+  const label = person?.name || person?.email || "User";
+  return (
+    person?.image ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      label
+    )}&background=10b981&color=ffffff&bold=true`
+  );
+}
+
+export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewProps) {
   const members = useQuery(api.myFunctions.getClassMembers, { classId });
   const teacher = useQuery(api.myFunctions.getClassTeacher, { classId });
 
@@ -37,6 +103,13 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
   const [selectedPeer, setSelectedPeer] = useState<string>("");
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
+
+  useEffect(() => {
+    if (!initialPeerEmail) return;
+    setSelectedPeer(initialPeerEmail);
+    setMobileThreadOpen(true);
+  }, [initialPeerEmail]);
 
   const membersList = members ?? EMPTY_ARRAY;
   const threadSummaries =
@@ -115,9 +188,13 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="rounded-3xl border border-slate-200 bg-white p-3 md:p-4">
-          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-3 min-h-[640px]">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-3 min-h-[calc(100dvh-12rem)] lg:min-h-[640px]">
 
-            <aside className="rounded-2xl border border-slate-200 bg-white p-2 md:p-3 flex flex-col overflow-hidden">
+            <aside
+              className={`rounded-2xl border border-slate-200 bg-white p-2 md:p-3 flex-col overflow-hidden ${
+                mobileThreadOpen ? "hidden lg:flex" : "flex"
+              }`}
+            >
               <div className="mb-2">
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -140,12 +217,14 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
                   const previewPrefix =
                     peer.thread?.lastSenderEmail === user.email ? "You: " : "";
                   const displayName = peer.name || peer.email.split("@")[0];
-                  const initial = getAvatarFallback(displayName || peer.email);
 
                   return (
                     <button
                       key={peer.email}
-                      onClick={() => setSelectedPeer(peer.email)}
+                      onClick={() => {
+                        setSelectedPeer(peer.email);
+                        setMobileThreadOpen(true);
+                      }}
                       className={`w-full rounded-xl px-3 py-2.5 text-left border transition-all ${
                         isActive
                           ? "bg-emerald-50 border-emerald-200"
@@ -153,9 +232,11 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-700 inline-flex items-center justify-center shrink-0">
-                          {initial}
-                        </div>
+                        <img
+                          src={getAvatarUrl(peer)}
+                          alt={displayName}
+                          className="h-10 w-10 rounded-full border border-slate-200 bg-white object-cover shrink-0"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm leading-5 font-bold text-slate-900 truncate">
@@ -183,18 +264,39 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
               </div>
             </aside>
 
-            <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
+            <section
+              className={`rounded-2xl border border-slate-200 bg-white overflow-hidden flex-col ${
+                mobileThreadOpen ? "flex" : "hidden lg:flex"
+              }`}
+            >
               <header className="h-[84px] border-b border-slate-200 bg-white px-4 md:px-5 flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-11 w-11 rounded-full border border-slate-200 bg-white text-sm font-bold text-slate-700 inline-flex items-center justify-center shrink-0">
-                    {getAvatarFallback(selectedPeerMeta?.name || selectedPeerMeta?.email || "?")}
-                  </div>
+                  <button
+                    onClick={() => setMobileThreadOpen(false)}
+                    className="lg:hidden h-9 w-9 rounded-full border border-slate-200 bg-white text-slate-600 inline-flex items-center justify-center shrink-0"
+                    aria-label="Back to conversations"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  {selectedPeerMeta ? (
+                    <img
+                      src={getAvatarUrl(selectedPeerMeta)}
+                      alt={selectedPeerMeta?.name || selectedPeerMeta?.email || "User"}
+                      className="h-11 w-11 rounded-full border border-slate-200 bg-white object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 rounded-full border border-slate-200 bg-white text-sm font-bold text-slate-700 inline-flex items-center justify-center shrink-0">
+                      {getAvatarFallback("?")}
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="text-lg md:text-xl leading-6 font-bold text-slate-900 truncate">
                       {selectedPeerMeta?.name || selectedPeerMeta?.email || "Pick a conversation"}
                     </p>
                     <p className="text-sm text-slate-500 truncate">
-                      {selectedPeerMeta ? "Online" : "Start a conversation"}
+                      {selectedPeerMeta
+                        ? `Last activity ${formatHeaderDateTime(selectedPeerMeta.thread?.lastMessageAt)}`
+                        : "Start a conversation"}
                     </p>
                   </div>
                 </div>
@@ -220,26 +322,40 @@ export function MessagesView({ classId, user }: MessagesViewProps) {
                   </div>
                 )}
 
-                {messages.map((message: any) => {
+                {messages.map((message: any, index: number) => {
                   const mine = message.senderEmail === user.email;
+                  const showDateDivider =
+                    index === 0 ||
+                    new Date(messages[index - 1].createdAt).toDateString() !==
+                      new Date(message.createdAt).toDateString();
+
                   return (
-                    <div key={message._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[88%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
-                        <div
-                          className={`rounded-[20px] border px-4 py-3 leading-6 shadow-sm ${
-                            mine
-                              ? "bg-emerald-600 border-emerald-600 text-white rounded-br-[10px]"
-                              : "bg-white border-slate-200 text-slate-700 rounded-bl-[10px]"
-                          }`}
-                        >
-                          <p className="text-sm md:text-[15px] whitespace-pre-wrap">{message.content}</p>
+                    <div key={message._id}>
+                      {showDateDivider && (
+                        <div className="my-3 flex items-center gap-2">
+                          <div className="h-px flex-1 bg-slate-200" />
+                          <p className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {formatMessageDateHeader(message.createdAt)}
+                          </p>
+                          <div className="h-px flex-1 bg-slate-200" />
                         </div>
-                        <p className="px-1 mt-1 text-[11px] text-slate-500">
-                          {new Date(message.createdAt).toLocaleString([], {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </p>
+                      )}
+
+                      <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[88%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
+                          <div
+                            className={`rounded-[20px] border px-4 py-3 leading-6 shadow-sm ${
+                              mine
+                                ? "bg-emerald-600 border-emerald-600 text-white rounded-br-[10px]"
+                                : "bg-white border-slate-200 text-slate-700 rounded-bl-[10px]"
+                            }`}
+                          >
+                            <p className="text-sm md:text-[15px] whitespace-pre-wrap">{message.content}</p>
+                          </div>
+                          <p className="px-1 mt-1 text-[11px] text-slate-500">
+                            {formatMessageTime(message.createdAt)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   );

@@ -25,6 +25,7 @@ export function Gradebook({ classId, user }: GradebookProps) {
   const featureApi = (api as any).featureFunctions;
   const gradebookPolicy = useQuery(featureApi.getGradebookPolicy, { classId });
   const reportCard = useQuery(featureApi.getReportCard, { classId });
+  const classProfile = useQuery(featureApi.getGamificationProfile, { classId });
   const examsList = exams ?? EMPTY_ARRAY;
   const gradesList = grades ?? EMPTY_ARRAY;
   const membersList = members ?? EMPTY_ARRAY;
@@ -182,7 +183,7 @@ export function Gradebook({ classId, user }: GradebookProps) {
             <p className="text-sm text-slate-500 font-medium">Your exam performance and progress.</p>
           </div>
           <div className="px-3 py-1.5 bg-emerald-100/50 rounded-lg border border-emerald-200/50 shadow-sm text-emerald-700 font-black text-xs tracking-tight">
-            XP: {user.xp || 0}
+            XP: {classProfile?.xp || 0}
           </div>
         </div>
 

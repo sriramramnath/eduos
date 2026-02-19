@@ -27,7 +27,9 @@ type ClassTab = "stream" | "classwork" | "people" | "grades" | "path" | "leaderb
 export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewProps) {
     const [activeTab, setActiveTab] = useState<ClassTab>("stream");
     const [selectedFile, setSelectedFile] = useState<any>(null);
+    const [initialMessagePeer, setInitialMessagePeer] = useState("");
     const classData = useQuery(api.myFunctions.getClassById, { classId });
+    const classProfile = useQuery((api as any).featureFunctions.getGamificationProfile, { classId });
 
     if (!classData) return <div className="p-10 text-slate-400 font-bold animate-pulse text-center">Loading Class...</div>;
 
@@ -43,14 +45,6 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
         if (tab === "stream") return "Stream";
         if (tab === "people") return "People";
         if (tab === "path") return "Path";
-        return tab;
-    };
-    const getMobileTabLabel = (tab: ClassTab) => {
-        if (tab === "classwork") return "work";
-        if (tab === "leaderboard") return "board";
-        if (tab === "grades") return "grades";
-        if (tab === "messages") return "chat";
-        if (tab === "calendar") return "cal";
         return tab;
     };
 
@@ -69,53 +63,55 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                     </button>
 
                     {/* Centered Navigation Tabs */}
-                    <div
-                        className="absolute left-1/2 -translate-x-1/2 p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center hidden md:grid w-full max-w-4xl"
-                        style={{
-                            ["--tab-index" as any]: tabs.indexOf(activeTab as any),
-                            gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
-                        }}
-                    >
-                        {/* Sliding Highlight */}
-                        <div className="absolute inset-1 pointer-events-none">
-                            <div
-                                className="h-full rounded-lg bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
-                                style={{
-                                    width: `calc(100% / ${tabs.length})`,
-                                    transform: "translateX(calc(var(--tab-index) * 100%))",
-                                }}
-                            />
+                    <div className="flex-1 min-w-0">
+                        <div
+                            className="relative p-1 bg-slate-100/70 border border-slate-200 rounded-xl items-center grid w-full max-w-4xl mx-auto"
+                            style={{
+                                ["--tab-index" as any]: tabs.indexOf(activeTab as any),
+                                gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
+                            }}
+                        >
+                            {/* Sliding Highlight */}
+                            <div className="absolute inset-1 pointer-events-none">
+                                <div
+                                    className="h-full rounded-lg bg-emerald-600 transition-all duration-300 ease-out shadow-sm shadow-emerald-600/20"
+                                    style={{
+                                        width: `calc(100% / ${tabs.length})`,
+                                        transform: "translateX(calc(var(--tab-index) * 100%))",
+                                    }}
+                                />
+                            </div>
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`relative z-10 py-1.5 text-[11px] font-bold tracking-[0.03em] flex items-center justify-center gap-1.5 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
+                                        }`}
+                                >
+                                    {tab === "stream" && <MessageSquare className="w-3 h-3" />}
+                                    {tab === "classwork" && <FileText className="w-3 h-3" />}
+                                    {tab === "people" && <Users className="w-3 h-3" />}
+                                    {tab === "grades" && (
+                                        <>
+                                            <ClipboardList className="w-3 h-3" />
+                                            <Crown className="w-3 h-3 text-amber-400" />
+                                        </>
+                                    )}
+                                    {tab === "path" && <Map className="w-3 h-3" />}
+                                    {tab === "leaderboard" && <Trophy className="w-3 h-3" />}
+                                    {tab === "calendar" && <CalendarDays className="w-3 h-3" />}
+                                    {tab === "messages" && <Send className="w-3 h-3" />}
+                                    <span className="hidden xl:inline">{getDesktopTabLabel(tab)}</span>
+                                </button>
+                            ))}
                         </div>
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`relative z-10 py-1.5 text-[11px] font-bold tracking-[0.03em] flex items-center justify-center gap-1.5 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-500 hover:text-slate-800"
-                                    }`}
-                            >
-                                {tab === "stream" && <MessageSquare className="w-3 h-3" />}
-                                {tab === "classwork" && <FileText className="w-3 h-3" />}
-                                {tab === "people" && <Users className="w-3 h-3" />}
-                                {tab === "grades" && (
-                                    <>
-                                        <ClipboardList className="w-3 h-3" />
-                                        <Crown className="w-3 h-3 text-amber-400" />
-                                    </>
-                                )}
-                                {tab === "path" && <Map className="w-3 h-3" />}
-                                {tab === "leaderboard" && <Trophy className="w-3 h-3" />}
-                                {tab === "calendar" && <CalendarDays className="w-3 h-3" />}
-                                {tab === "messages" && <Send className="w-3 h-3" />}
-                                <span className="hidden xl:inline">{getDesktopTabLabel(tab)}</span>
-                            </button>
-                        ))}
                     </div>
 
                     {/* Relocated User Info (XP & PFP) */}
                     <div className="flex items-center gap-3 shrink-0">
                         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100/50 rounded-lg border border-emerald-200/50 shadow-sm">
                             <Zap className="w-3 h-3 text-emerald-600 fill-emerald-600" />
-                            <span className="text-emerald-700 font-black text-xs tracking-tight">{user.xp || 0}</span>
+                            <span className="text-emerald-700 font-black text-xs tracking-tight">{classProfile?.xp || 0}</span>
                         </div>
                         <img
                             src={user.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=ffffff&bold=true`}
@@ -126,30 +122,18 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                 </div>
             </nav>
 
-            <div className="md:hidden sticky top-[max(env(safe-area-inset-top),0px)] z-40 w-full mb-4">
-                <div className="w-full max-w-6xl mx-auto rounded-xl border border-slate-200 bg-white/85 backdrop-blur-xl px-3 py-2 shadow-sm flex items-center gap-3">
-                    <button
-                        onClick={onBack}
-                        className="w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors flex items-center justify-center shrink-0"
-                        aria-label="Back to classes"
-                        title="Back to classes"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-900">{classData.name}</p>
-                        <p className="text-xs font-medium text-slate-500">Class view</p>
-                    </div>
-                    <div className="px-2.5 py-1.5 rounded-lg border border-emerald-200/50 bg-emerald-50 text-emerald-700 text-xs font-bold">
-                        {user.xp || 0} XP
-                    </div>
-                </div>
-            </div>
-
             {/* Mobile Bottom Navigation */}
-            <div className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-3 right-3 sm:left-6 sm:right-6 h-14 bg-white/80 backdrop-blur-xl border border-slate-200/50 rounded-2xl flex items-center z-50 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+            <div className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-3 right-3 h-16 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl flex items-center z-50 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+                <button
+                    onClick={onBack}
+                    className="ml-2 w-10 h-10 rounded-xl border border-slate-200 bg-white/90 shadow-sm flex items-center justify-center"
+                    title="Back to classes"
+                    aria-label="Back to classes"
+                >
+                    <ArrowLeft className="w-5 h-5 text-slate-500" />
+                </button>
                 <div className="relative flex-1 h-full">
-                    <div className="absolute top-2 left-2 right-2 h-10 pointer-events-none">
+                    <div className="absolute top-2 left-1 right-1 h-12 pointer-events-none">
                         <div
                             className="h-full rounded-xl bg-emerald-600 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-sm shadow-emerald-600/20"
                             style={{
@@ -163,7 +147,9 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`relative z-10 flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-400"}`}
+                                aria-label={getDesktopTabLabel(tab)}
+                                title={getDesktopTabLabel(tab)}
+                                className={`relative z-10 flex-1 h-full flex items-center justify-center transition-colors duration-300 ${activeTab === tab ? "text-white" : "text-slate-400"}`}
                             >
                                 {tab === "stream" && <MessageSquare className="w-5 h-5 transition-transform group-active:scale-95" />}
                                 {tab === "classwork" && <FileText className="w-5 h-5 transition-transform group-active:scale-95" />}
@@ -178,14 +164,13 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                                 {tab === "leaderboard" && <Trophy className="w-5 h-5 transition-transform group-active:scale-95" />}
                                 {tab === "calendar" && <CalendarDays className="w-5 h-5 transition-transform group-active:scale-95" />}
                                 {tab === "messages" && <Send className="w-5 h-5 transition-transform group-active:scale-95" />}
-                                <span className="text-[10px] font-semibold tracking-wide leading-none opacity-90 capitalize">{getMobileTabLabel(tab)}</span>
                             </button>
                         ))}
                     </div>
                 </div>
                 <button
                     onClick={onOpenSettings}
-                    className="mx-2 w-10 h-10 rounded-xl border border-slate-200 bg-white/90 shadow-sm flex items-center justify-center"
+                    className="mr-2 w-10 h-10 rounded-xl border border-slate-200 bg-white/90 shadow-sm flex items-center justify-center"
                     title="Settings"
                     aria-label="Open settings"
                 >
@@ -193,15 +178,28 @@ export function ClassView({ classId, user, onBack, onOpenSettings }: ClassViewPr
                 </button>
             </div>
 
-            <main className="w-full max-w-6xl mx-auto text-left pb-24 md:pb-16">
+            <main className="w-full max-w-6xl mx-auto text-left pb-28 md:pb-16">
                 {activeTab === "stream" && <StreamView classData={classData} user={user} onFileSelect={setSelectedFile} />}
                 {activeTab === "classwork" && <ClassworkView classId={classId} user={user} />}
-                {activeTab === "people" && <PeopleView classId={classId} user={user} />}
+                {activeTab === "people" && (
+                    <PeopleView
+                        classId={classId}
+                        user={user}
+                        onOpenMessage={(peerEmail) => {
+                            setInitialMessagePeer(peerEmail);
+                            setActiveTab("messages");
+                        }}
+                    />
+                )}
                 {activeTab === "grades" && <Gradebook classId={classId} user={user} />}
                 {activeTab === "path" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><LearningPath classId={classId} user={user} /></div>}
                 {activeTab === "leaderboard" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><Scoreboard classId={classId} user={user} /></div>}
                 {activeTab === "calendar" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><CalendarView classId={classId} user={user} /></div>}
-                {activeTab === "messages" && <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><MessagesView classId={classId} user={user} /></div>}
+                {activeTab === "messages" && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <MessagesView classId={classId} user={user} initialPeerEmail={initialMessagePeer} />
+                    </div>
+                )}
             </main>
 
             {selectedFile && (
@@ -1879,7 +1877,15 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
     );
 }
 
-function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
+function PeopleView({
+    classId,
+    user,
+    onOpenMessage,
+}: {
+    classId: Id<"classes">;
+    user: any;
+    onOpenMessage: (peerEmail: string) => void;
+}) {
     const members = useQuery(api.myFunctions.getClassMembers, { classId }) || [];
     const teacher = useQuery(api.myFunctions.getClassTeacher, { classId });
     const assignments = useQuery(api.myFunctions.getClassFiles, { classId }) || [];
@@ -1894,6 +1900,7 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
     const [compareRightId, setCompareRightId] = useState("");
     const [taskAssignee, setTaskAssignee] = useState("");
     const [taskDueAt, setTaskDueAt] = useState("");
+    const [contactMenuFor, setContactMenuFor] = useState<string | null>(null);
 
     const timeline = useQuery(
         api.myFunctions.getStudentTimeline,
@@ -1937,6 +1944,7 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
     const createNudge = useMutation(api.myFunctions.createNudge);
     const createClassInvite = useMutation(featureApi.createClassInvite);
     const reviewJoinRequest = useMutation(featureApi.reviewJoinRequest);
+    const removeClassMember = useMutation(featureApi.removeClassMember);
     const createInterventionTask = useMutation(featureApi.createInterventionTask);
     const updateInterventionTask = useMutation(featureApi.updateInterventionTask);
 
@@ -2067,9 +2075,67 @@ function PeopleView({ classId, user }: { classId: Id<"classes">; user: any }) {
                                         <p className="text-sm font-bold text-slate-800">{member.name}</p>
                                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{member.email}</p>
                                     </div>
-                                    <button className="w-9 h-9 rounded-md bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center">
-                                        <Mail className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative">
+                                            <button
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    setContactMenuFor((current) => (current === member.email ? null : member.email));
+                                                }}
+                                                className="w-9 h-9 rounded-md bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center"
+                                                title="Contact options"
+                                                aria-label={`Contact ${member.name || member.email}`}
+                                            >
+                                                <Mail className="w-4 h-4" />
+                                            </button>
+                                            {contactMenuFor === member.email && (
+                                                <div
+                                                    className="absolute right-0 top-11 z-10 w-28 rounded-md border border-slate-200 bg-white shadow-lg p-1"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                >
+                                                    <button
+                                                        onClick={() => {
+                                                            setContactMenuFor(null);
+                                                            onOpenMessage(member.email);
+                                                        }}
+                                                        className="w-full text-left px-2 py-1.5 rounded text-[11px] font-bold text-slate-700 hover:bg-slate-100"
+                                                    >
+                                                        Message
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setContactMenuFor(null);
+                                                            window.location.href = `mailto:${member.email}`;
+                                                        }}
+                                                        className="w-full text-left px-2 py-1.5 rounded text-[11px] font-bold text-slate-700 hover:bg-slate-100"
+                                                    >
+                                                        Email
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {user.role === "teacher" && (
+                                            <button
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    const confirmed = window.confirm(`Remove ${member.name || member.email} from this class?`);
+                                                    if (!confirmed) return;
+
+                                                    void (async () => {
+                                                        await removeClassMember({ classId, studentId: member.email });
+                                                        if (selectedStudent?.email === member.email) {
+                                                            setSelectedStudent(null);
+                                                        }
+                                                    })();
+                                                }}
+                                                className="w-9 h-9 rounded-md bg-rose-50 text-rose-500 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center"
+                                                title="Remove student"
+                                                aria-label={`Remove ${member.name || member.email}`}
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                             {members.length === 0 && (

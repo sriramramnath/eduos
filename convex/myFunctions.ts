@@ -47,6 +47,68 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>) {
   return union === 0 ? 0 : intersection / union;
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function sameUtcDay(a: number, b: number) {
+  const da = new Date(a);
+  const db = new Date(b);
+  return (
+    da.getUTCFullYear() === db.getUTCFullYear() &&
+    da.getUTCMonth() === db.getUTCMonth() &&
+    da.getUTCDate() === db.getUTCDate()
+  );
+}
+
+async function updateClassStats(
+  ctx: MutationCtx,
+  classId: Id<"classes">,
+  userEmail: string,
+  xpDelta: number
+) {
+  const now = Date.now();
+  const existing = await ctx.db
+    .query("userClassStats")
+    .withIndex("class_user", (q) => q.eq("classId", classId).eq("userEmail", userEmail))
+    .first();
+
+  const previousStreak = existing?.streak || 0;
+  const previousLastActive = existing?.lastActiveAt;
+  let nextStreak = previousStreak;
+
+  if (!previousLastActive) {
+    nextStreak = 1;
+  } else if (sameUtcDay(now, previousLastActive)) {
+    nextStreak = previousStreak;
+  } else if (now - previousLastActive <= DAY_MS * 2) {
+    nextStreak = previousStreak + 1;
+  } else {
+    nextStreak = 1;
+  }
+
+  const nextXp = Math.max(0, (existing?.xp || 0) + xpDelta);
+  const nextLevel = Math.max(1, Math.floor(nextXp / 100) + 1);
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      xp: nextXp,
+      streak: nextStreak,
+      lastActiveAt: now,
+      level: nextLevel,
+    });
+  } else {
+    await ctx.db.insert("userClassStats", {
+      classId,
+      userEmail,
+      xp: nextXp,
+      streak: nextStreak,
+      lastActiveAt: now,
+      level: nextLevel,
+    });
+  }
+
+  return { xp: nextXp, streak: nextStreak, level: nextLevel };
+}
+
 export const deleteAllUsers = mutation({
   args: {},
   handler: async (ctx) => {
@@ -117,7 +179,8 @@ export const getCurrentUser = query({
       ...user,
       image: authUser.image,
       profilePicture: authUser.image,
-      name: authUser.name || user.name,
+      // Prefer app-managed profile name so users can customize display name.
+      name: user.name || authUser.name,
       email: authUser.email || user.email
     };
   },
@@ -154,6 +217,29 @@ export const updateAccentColor = mutation({
     if (!data || !data.user) throw new Error("User not found");
 
     await ctx.db.patch(data.user._id, { accentColor });
+    return await ctx.db.get(data.user._id);
+  },
+});
+
+export const updateDisplayName = mutation({
+  args: {
+    name: v.string(),
+  },
+  handler: async (ctx, { name }) => {
+    const data = await getCurrentUserData(ctx);
+    if (!data || !data.user) throw new Error("User not found");
+
+    const normalizedName = name.replace(/\s+/g, " ").trim();
+    if (!normalizedName) throw new Error("Display name cannot be empty");
+    if (normalizedName.length > 80) throw new Error("Display name cannot exceed 80 characters");
+
+    await ctx.db.patch(data.user._id, { name: normalizedName });
+
+    // If auth user doc is distinct from app user doc, keep names in sync.
+    if (data.authUser?._id !== data.user._id) {
+      await ctx.db.patch(data.authUser._id, { name: normalizedName });
+    }
+
     return await ctx.db.get(data.user._id);
   },
 });
@@ -952,19 +1038,39 @@ export const getStudentTimeline = query({
       .withIndex("class", (q) => q.eq("classId", classId))
       .filter((q) => q.eq(q.field("studentId"), studentId))
       .collect();
-    const quizSubs = await ctx.db
+
+    const classQuizzes = await ctx.db
+      .query("quizzes")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+    const classQuizIds = new Set(classQuizzes.map((quiz) => quiz._id));
+    const allQuizSubs = await ctx.db
       .query("quizSubmissions")
       .withIndex("student", (q) => q.eq("studentId", studentId))
       .collect();
+    const quizSubs = allQuizSubs.filter((submission) => classQuizIds.has(submission.quizId));
+
     const responses = await ctx.db
       .query("formResponses")
       .withIndex("class", (q) => q.eq("classId", classId))
       .filter((q) => q.eq(q.field("studentId"), studentId))
       .collect();
-    const progress = await ctx.db
+
+    const classLessons = await ctx.db
+      .query("lessons")
+      .withIndex("class", (q) => q.eq("classId", classId))
+      .collect();
+    const classLessonIds = new Set(classLessons.map((lesson) => lesson._id));
+    const allProgress = await ctx.db
       .query("userProgress")
       .withIndex("user", (q) => q.eq("userId", studentId))
       .collect();
+    const progress = allProgress.filter(
+      (entry) =>
+        entry.classId === classId ||
+        (entry.classId === undefined && classLessonIds.has(entry.lessonId))
+    );
+
     const lessonIds = new Set(progress.map((p) => p.lessonId));
     const lessons = lessonIds.size
       ? await ctx.db.query("lessons").collect()
@@ -1187,7 +1293,11 @@ export const getLearningPath = query({
       .withIndex("user", (q) => q.eq("userId", user.email))
       .collect();
 
-    const progressMap = new Set(progress.map((p) => p.lessonId));
+    const progressMap = new Set(
+      progress
+        .filter((entry) => entry.classId === classId || (entry.classId === undefined && lessons.some((lesson) => lesson._id === entry.lessonId)))
+        .map((entry) => entry.lessonId)
+    );
 
     return lessons.map((lesson) => ({
       ...lesson,
@@ -1198,10 +1308,11 @@ export const getLearningPath = query({
 
 export const completeLesson = mutation({
   args: {
+    classId: v.id("classes"),
     lessonId: v.id("lessons"),
     masteryScore: v.optional(v.number()),
   },
-  handler: async (ctx, { lessonId, masteryScore }) => {
+  handler: async (ctx, { classId, lessonId, masteryScore }) => {
     const data = await getCurrentUserData(ctx);
     if (!data || !data.user) throw new Error("User not found");
     const user = data.user;
@@ -1209,6 +1320,9 @@ export const completeLesson = mutation({
     const lesson = await ctx.db.get(lessonId);
     if (!lesson) throw new Error("Lesson not found");
     const lessonAny = lesson as any;
+    if (lessonAny.classId && lessonAny.classId !== classId) {
+      throw new Error("Lesson does not belong to this class");
+    }
 
     const prerequisiteIds = lessonAny.prerequisiteLessonIds || [];
     if (prerequisiteIds.length) {
@@ -1233,16 +1347,20 @@ export const completeLesson = mutation({
       throw new Error(`Mastery threshold not met (${lessonAny.masteryThreshold}%)`);
     }
 
-    const existingProgress = await ctx.db
+    const candidateProgress = await ctx.db
       .query("userProgress")
       .withIndex("user", (q) => q.eq("userId", user.email))
       .filter((q) => q.eq(q.field("lessonId"), lessonId))
-      .first();
+      .collect();
+    const existingProgress = candidateProgress.find(
+      (entry) => entry.classId === classId || (entry.classId === undefined && lessonAny.classId === classId)
+    );
 
     if (existingProgress) return { message: "Lesson already completed" };
 
     await ctx.db.insert("userProgress", {
       userId: user.email,
+      classId,
       lessonId,
       completedAt: Date.now(),
     });
@@ -1278,7 +1396,13 @@ export const completeLesson = mutation({
       level,
     } as any);
 
-    return { xpAwarded: lesson.xpAward, totalXp: newXp, streak, level };
+    const classStats = await updateClassStats(ctx, classId, user.email, lesson.xpAward);
+    return {
+      xpAwarded: lesson.xpAward,
+      totalXp: classStats.xp,
+      streak: classStats.streak,
+      level: classStats.level
+    };
   },
 });
 
@@ -1298,7 +1422,17 @@ export const getLeaderboard = query({
           .query("users")
           .withIndex("email", (q) => q.eq("email", membership.studentId))
           .first();
-        if (student) members.push(student);
+        if (!student) continue;
+
+        const classStats = await ctx.db
+          .query("userClassStats")
+          .withIndex("class_user", (q) => q.eq("classId", classId).eq("userEmail", membership.studentId))
+          .first();
+
+        members.push({
+          ...student,
+          xp: classStats?.xp || 0,
+        });
       }
 
       // Sort by XP
@@ -1429,7 +1563,20 @@ export const getClassMembers = query({
         .query("users")
         .withIndex("email", (q) => q.eq("email", membership.studentId))
         .first();
-      if (student) members.push(student);
+      if (!student) continue;
+
+      const classStats = await ctx.db
+        .query("userClassStats")
+        .withIndex("class_user", (q) => q.eq("classId", classId).eq("userEmail", membership.studentId))
+        .first();
+
+      members.push({
+        ...student,
+        xp: classStats?.xp || 0,
+        classXp: classStats?.xp || 0,
+        classLevel: classStats?.level || 1,
+        classStreak: classStats?.streak || 0,
+      });
     }
     return members;
   },
@@ -1616,6 +1763,7 @@ export const completeQuiz = mutation({
       await ctx.db.patch(data.user._id, {
         xp: (data.user.xp || 0) + xpAward,
       });
+      await updateClassStats(ctx, quiz.classId, data.user.email, xpAward);
     }
 
     return { success: true, xpAwarded: xpAward, alreadyCompleted: !!existingSubmission };
