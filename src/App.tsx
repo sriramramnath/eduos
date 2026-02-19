@@ -4,7 +4,7 @@ import { Authenticated, Unauthenticated, useQuery, useMutation } from "convex/re
 import { api } from "../convex/_generated/api";
 import { ClassDashboard } from "./components/ClassDashboard";
 import { SettingsPage } from "./components/SettingsPage";
-import { GraduationCap, Presentation, Paperclip, Globe, UsersRound, TrendingUp, House, Settings, Info, LogIn, ArrowLeft } from "lucide-react";
+import { GraduationCap, Presentation, Paperclip, Globe, UsersRound, TrendingUp, House, Settings, Check, X } from "lucide-react";
 import { BookMascot } from "./components/BookMascot";
 import { ACCENT_COLOR_MAP, DEFAULT_ACCENT_COLOR, type AccentColorKey } from "./lib/accentColors";
 
@@ -274,16 +274,16 @@ function LandingPage() {
   ];
 
   const comparisonRows = [
-    ["✓ One workspace for class tasks", "✕ Multiple connected apps", "✕ Best inside Apple stack"],
-    ["✓ Browser editing built in", "✕ Depends on Docs/Slides/Sheets", "✕ Limited built-in editing"],
-    ["✓ Handles mixed file types", "✕ Optimized for Google formats", "✕ Best with Apple-native flow"],
-    ["✓ Assignment timers included", "✕ Needs add-ons/workarounds", "✕ Not timer-first workflow"],
-    ["✓ Built-in class messages", "✕ Messaging split across tools", "✕ Less central classroom messaging"],
-    ["✓ Live progress analytics", "✕ Reporting across separate pages", "✕ Analytics less assignment-focused"],
-    ["✓ Teacher activity insights", "✕ Depends on workspace integrations", "✕ Tied to Apple management data"],
-    ["✓ Student-friendly simple UI", "✕ More menus for new users", "✕ Best for managed devices"],
-    ["✓ Fast updates from school feedback", "✕ Large platform release cycles", "✕ Tied to Apple release pace"],
-    ["✓ Lightweight setup for small schools", "✕ Works best with Google-wide rollout", "✕ Works best with Apple admin setup"],
+    { feature: "One workspace for class tasks", google: "Multiple connected apps", apple: "Best inside Apple stack" },
+    { feature: "Browser editing built in", google: "Depends on Docs/Slides/Sheets", apple: "Limited built-in editing" },
+    { feature: "Handles mixed file types", google: "Optimized for Google formats", apple: "Best with Apple-native flow" },
+    { feature: "Assignment timers included", google: "Needs add-ons/workarounds", apple: "Not timer-first workflow" },
+    { feature: "Built-in class messages", google: "Messaging split across tools", apple: "Less central classroom messaging" },
+    { feature: "Live progress analytics", google: "Reporting across separate pages", apple: "Analytics less assignment-focused" },
+    { feature: "Teacher activity insights", google: "Depends on workspace integrations", apple: "Tied to Apple management data" },
+    { feature: "Student-friendly simple UI", google: "More menus for new users", apple: "Best for managed devices" },
+    { feature: "Fast updates from school feedback", google: "Large platform release cycles", apple: "Tied to Apple release pace" },
+    { feature: "Lightweight setup for small schools", google: "Works best with Google-wide rollout", apple: "Works best with Apple admin setup" },
   ];
 
   useEffect(() => {
@@ -330,13 +330,13 @@ function LandingPage() {
   if (isAboutPage) {
     return (
       <div className={`marketing-landing min-h-screen bg-[#efefef] text-[#111111] ${isDarkMode ? "marketing-dark" : ""}`}>
-        <header className="hidden md:block mx-auto w-full max-w-[1200px] px-5 md:px-12 pt-6 md:pt-5">
-          <div className="flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-40 border-b border-[#d8d8d8] bg-[#efefef]/90 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-3 px-4 py-3 md:px-12">
             <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain" />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               <button
                 onClick={goToLandingPage}
-                className="rounded-full border border-[#cfcfcf] px-5 py-2 text-sm font-semibold text-[#222222]"
+                className="rounded-full border border-[#cfcfcf] px-3 py-2 text-xs font-semibold text-[#222222] md:px-5 md:text-sm"
               >
                 Back
               </button>
@@ -344,15 +344,15 @@ function LandingPage() {
                 onClick={() => {
                   void signIn("google");
                 }}
-                className="rounded-full bg-[var(--app-accent)] px-6 py-2.5 text-sm font-semibold text-white"
+                className="rounded-full bg-[var(--app-accent)] px-4 py-2 text-xs font-semibold text-white md:px-6 md:py-2.5 md:text-sm"
               >
-                Sign in with Google
+                Sign in
               </button>
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1200px] px-5 pb-28 md:pb-20 pt-12 md:pt-24 md:px-12">
+        <main className="mx-auto w-full max-w-[1200px] px-5 pb-16 pt-10 md:px-12 md:pb-20 md:pt-20">
           <div className="mx-auto mt-2 max-w-[980px] rounded-[24px] border border-[#d7d7d7] bg-[#f4f4f4] p-8 md:p-12">
             <article className="space-y-10 text-left">
               <section>
@@ -416,63 +416,43 @@ function LandingPage() {
             </button>
           </div>
         </main>
-        <nav className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-3 right-3 z-50 rounded-2xl border border-[#d7d7d7] bg-[#f4f4f4]/95 backdrop-blur p-2 shadow-[0_10px_30px_rgba(15,23,42,0.14)]">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={goToLandingPage}
-              aria-label="Home"
-              title="Home"
-              className="flex items-center justify-center gap-2 rounded-xl bg-white border border-[#d7d7d7] px-4 py-3 text-xs font-semibold text-[#222222]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => {
-                void signIn("google");
-              }}
-              aria-label="Sign in"
-              title="Sign in"
-              className="flex items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-3 text-xs font-semibold text-white"
-            >
-              <LogIn className="w-4 h-4" />
-            </button>
-          </div>
-        </nav>
       </div>
     );
   }
 
   return (
     <div className={`marketing-landing min-h-screen bg-[#efefef] text-[#111111] ${isDarkMode ? "marketing-dark" : ""}`}>
-      <header className="hidden md:block sticky top-0 z-40 border-b border-[#d8d8d8] bg-[#efefef]/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1520px] items-center justify-between gap-4 px-5 py-3 md:px-12">
-          <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain" />
-          <nav className="hidden md:flex items-center gap-12 text-[15px] font-medium">
-            <a href="#benefits">Benefits</a>
-            <a href="#why">Why us?</a>
-            <a href="#contact">Contact Us</a>
-          </nav>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={goToAboutPage}
-              className="rounded-full border border-[#cfcfcf] px-5 py-2 text-sm font-semibold text-[#222222]"
-            >
-              Connect With Us
-            </button>
-            <button
-              onClick={() => {
-                void signIn("google");
-              }}
-              className="rounded-full bg-[var(--app-accent)] px-6 py-2.5 text-sm font-semibold text-white"
-            >
-              Sign in with Google
-            </button>
+      <header className="sticky top-0 z-40 border-b border-[#d8d8d8] bg-[#efefef]/90 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1520px] items-center gap-3 px-4 py-3 md:px-12">
+          <img src="/mascot/pagey-happy.png" alt="EduOS logo" className="h-9 w-auto object-contain shrink-0" />
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:gap-4">
+            <nav className="flex items-center gap-2 text-[13px] font-medium md:gap-12 md:text-[15px]">
+              <a href="#benefits">Benefits</a>
+              <a href="#why">Why us?</a>
+              <a href="#contact">Contact Us</a>
+            </nav>
+            <div className="flex items-center gap-2 md:gap-3">
+              <button
+                onClick={goToAboutPage}
+                className="rounded-full border border-[#cfcfcf] px-3 py-2 text-xs font-semibold text-[#222222] md:px-5 md:text-sm"
+              >
+                Connect
+              </button>
+              <button
+                onClick={() => {
+                  void signIn("google");
+                }}
+                className="rounded-full bg-[var(--app-accent)] px-4 py-2 text-xs font-semibold text-white md:px-6 md:py-2.5 md:text-sm"
+              >
+                Sign in
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <section id="hero" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-8 md:pt-16">
-        <h1 className="mx-auto max-w-[1320px] text-center text-[52px] leading-[0.95] tracking-[-0.03em] md:text-[108px]">
+        <h1 className="mx-auto max-w-[1320px] text-center text-[42px] leading-[0.95] tracking-[-0.03em] sm:text-[50px] md:text-[108px]">
           A school workspace built
           <br />
           for real classrooms.
@@ -518,25 +498,52 @@ function LandingPage() {
       </section>
 
       <section id="why" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 pt-14 md:pt-20">
-        <div className="overflow-hidden rounded-[24px] border border-[#d7d7d7] bg-[#efefef]">
-          <div className="grid grid-cols-1 md:grid-cols-3">
-            <div className="rounded-t-[24px] md:rounded-none md:rounded-l-[24px] border-b border-[#d7d7d7] bg-[#f3f3f3] md:border-b-0 md:shadow-[0_0_0_1px_#dddddd,0_8px_20px_rgba(0,0,0,0.05)]">
-              <h3 className="px-8 py-8 text-center text-[43px]">EduOS</h3>
-            </div>
-            <div className="border-b border-[#d7d7d7] px-8 py-8 text-center text-[43px] md:border-b-0 md:border-l">Google Classroom</div>
-            <div className="px-8 py-8 text-center text-[43px] md:border-l">Apple Classroom</div>
+        <div className="overflow-hidden rounded-[24px] border border-[var(--m-border)] bg-[var(--m-surface)]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] border-collapse">
+              <thead>
+                <tr className="bg-[var(--m-surface-strong)]">
+                  <th className="w-[36%] border-r border-[var(--m-border)] px-6 py-5 text-left text-[14px] font-semibold uppercase tracking-[0.08em] text-[var(--m-muted)]">EduOS</th>
+                  <th className="w-[32%] border-r border-[var(--m-border)] px-6 py-5 text-left text-[14px] font-semibold uppercase tracking-[0.08em] text-[var(--m-muted)]">Google Classroom</th>
+                  <th className="w-[32%] px-6 py-5 text-left text-[14px] font-semibold uppercase tracking-[0.08em] text-[var(--m-muted)]">Apple Classroom</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((row, index) => (
+                  <tr key={index} className="border-t border-[var(--m-border)] align-top">
+                    <td className="border-r border-[var(--m-border)] px-6 py-5">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
+                          <Check className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="text-[17px] leading-[1.4] text-[var(--m-text)]">{row.feature}</span>
+                      </div>
+                    </td>
+                    <td className="border-r border-[var(--m-border)] px-6 py-5">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-rose-500/20 text-rose-500">
+                          <X className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="text-[17px] leading-[1.4] text-[var(--m-text)]">{row.google}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-rose-500/20 text-rose-500">
+                          <X className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="text-[17px] leading-[1.4] text-[var(--m-text)]">{row.apple}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {comparisonRows.map((row, index) => (
-            <div key={index} className="grid grid-cols-1 border-t border-[#d7d7d7] md:grid-cols-3">
-              <div className="px-8 py-8 text-[22px] md:border-r border-[#d7d7d7]">{row[0]}</div>
-              <div className="px-8 py-8 text-[22px] md:border-r border-[#d7d7d7]">{row[1]}</div>
-              <div className="px-8 py-8 text-[22px]">{row[2]}</div>
-            </div>
-          ))}
         </div>
       </section>
 
-      <section id="contact" className="mx-auto w-full max-w-[1520px] px-5 md:px-12 py-20 pb-28 md:pb-24 md:py-24">
+      <section id="contact" className="mx-auto w-full max-w-[1520px] px-5 py-16 md:px-12 md:py-24">
         <div className="h-px w-full bg-[#d9d9d9]" />
         <div className="mx-auto max-w-[900px] pt-20 text-center">
           <h2 className="text-[56px] leading-[1] md:text-[72px]">Connect with us</h2>
@@ -551,44 +558,6 @@ function LandingPage() {
           </button>
         </div>
       </section>
-      <nav className="md:hidden fixed bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-3 right-3 z-50 rounded-2xl border border-[#d7d7d7] bg-[#f4f4f4]/95 backdrop-blur p-2 shadow-[0_10px_30px_rgba(15,23,42,0.14)]">
-        <div className="grid grid-cols-4 gap-2">
-          <a
-            href="#benefits"
-            aria-label="Benefits"
-            title="Benefits"
-            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white border border-[#d7d7d7] px-2 py-2.5 text-[10px] font-semibold text-[#222222]"
-          >
-            <House className="w-4 h-4" />
-          </a>
-          <a
-            href="#why"
-            aria-label="Why"
-            title="Why"
-            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white border border-[#d7d7d7] px-2 py-2.5 text-[10px] font-semibold text-[#222222]"
-          >
-            <Info className="w-4 h-4" />
-          </a>
-          <a
-            href="#contact"
-            aria-label="Contact"
-            title="Contact"
-            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white border border-[#d7d7d7] px-2 py-2.5 text-[10px] font-semibold text-[#222222]"
-          >
-            <Paperclip className="w-4 h-4" />
-          </a>
-          <button
-            onClick={() => {
-              void signIn("google");
-            }}
-            aria-label="Sign in"
-            title="Sign in"
-            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[var(--app-accent)] px-2 py-2.5 text-[10px] font-semibold text-white"
-          >
-            <LogIn className="w-4 h-4" />
-          </button>
-        </div>
-      </nav>
     </div>
   );
 }
