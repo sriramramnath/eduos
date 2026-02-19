@@ -10,7 +10,7 @@ import { LearningPath } from "./LearningPath";
 import { Scoreboard } from "./Scoreboard";
 import { FileViewer } from "./FileViewer";
 import { AssignmentModal } from "./AssignmentModal";
-import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus, Crown, User, CalendarDays, Send } from "lucide-react";
+import { ArrowLeft, MessageSquare, FileText, Users, Map, Trophy, Mail, BookOpen, MoreVertical, Camera, Loader2, GraduationCap, CheckCircle2, X, Zap, Link as LinkIcon, Presentation, ExternalLink, ClipboardList, Plus, Crown, User, CalendarDays, Send, CornerDownRight } from "lucide-react";
 import { Composer } from "./Composer";
 import { CalendarView } from "./CalendarView";
 import { MessagesView } from "./MessagesView";
@@ -233,6 +233,7 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
     const [goal, setGoal] = useState("");
     const [blocker, setBlocker] = useState("");
     const [submittingReflection, setSubmittingReflection] = useState(false);
+    const [isCheckInOpen, setIsCheckInOpen] = useState(false);
     const featureApi = (api as any).featureFunctions;
     const pinStreamEntry = useMutation(featureApi.pinStreamEntry);
 
@@ -318,63 +319,71 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                     <Composer classId={classData._id} user={user} />
 
                     {user.role === "student" && (
-                        <div className="premium-card p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Daily Check-In</p>
-                                    <p className="text-sm font-bold text-slate-900">How are you doing today?</p>
-                                </div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    {latestReflection ? `Last: ${new Date(latestReflection.createdAt).toLocaleDateString()}` : "New"}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <select
-                                    value={mood}
-                                    onChange={(e) => setMood(e.target.value)}
-                                    className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
-                                >
-                                    <option>Focused</option>
-                                    <option>Motivated</option>
-                                    <option>Stuck</option>
-                                    <option>Overwhelmed</option>
-                                    <option>Curious</option>
-                                </select>
-                                <input
-                                    value={goal}
-                                    onChange={(e) => setGoal(e.target.value)}
-                                    placeholder="Today's goal"
-                                    className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
-                                />
-                                <input
-                                    value={blocker}
-                                    onChange={(e) => setBlocker(e.target.value)}
-                                    placeholder="Any blockers?"
-                                    className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
-                                />
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Private to your teacher</p>
+                        <>
+                            <div className="flex items-center gap-2">
                                 <button
-                                    disabled={submittingReflection}
-                                    onClick={() => {
-                                        void (async () => {
-                                            setSubmittingReflection(true);
-                                            try {
-                                                await createReflection({ classId: classData._id, mood, goal, blocker });
-                                                setGoal("");
-                                                setBlocker("");
-                                            } finally {
-                                                setSubmittingReflection(false);
-                                            }
-                                        })();
-                                    }}
-                                    className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                    onClick={() => setIsCheckInOpen((prev) => !prev)}
+                                    className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 underline underline-offset-2"
                                 >
-                                    {submittingReflection ? "Saving..." : "Submit Check-In"}
+                                    Daily Check-In
                                 </button>
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {latestReflection ? `Last: ${new Date(latestReflection.createdAt).toLocaleDateString()}` : "New"}
+                                </span>
                             </div>
-                        </div>
+
+                            {isCheckInOpen && (
+                                <div className="premium-card p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <select
+                                            value={mood}
+                                            onChange={(e) => setMood(e.target.value)}
+                                            className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        >
+                                            <option>Focused</option>
+                                            <option>Motivated</option>
+                                            <option>Stuck</option>
+                                            <option>Overwhelmed</option>
+                                            <option>Curious</option>
+                                        </select>
+                                        <input
+                                            value={goal}
+                                            onChange={(e) => setGoal(e.target.value)}
+                                            placeholder="Today's goal"
+                                            className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        />
+                                        <input
+                                            value={blocker}
+                                            onChange={(e) => setBlocker(e.target.value)}
+                                            placeholder="Any blockers?"
+                                            className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm font-medium text-slate-700"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Private to your teacher</p>
+                                        <button
+                                            disabled={submittingReflection}
+                                            onClick={() => {
+                                                void (async () => {
+                                                    setSubmittingReflection(true);
+                                                    try {
+                                                        await createReflection({ classId: classData._id, mood, goal, blocker });
+                                                        setGoal("");
+                                                        setBlocker("");
+                                                        setIsCheckInOpen(false);
+                                                    } finally {
+                                                        setSubmittingReflection(false);
+                                                    }
+                                                })();
+                                            }}
+                                            className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all"
+                                        >
+                                            {submittingReflection ? "Saving..." : "Submit Check-In"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {activeForms.length > 0 && (
@@ -525,7 +534,7 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <p className="text-xs font-semibold text-slate-500 mb-1">
-                                                            {entry.uploadedBy.split("@")[0]} {entry.isAssignment ? "posted homework" : "shared a resource"}
+                                                            {entry.uploadedBy.split("@")[0]} {entry.isAssignment ? "posted an update" : "shared a resource"}
                                                         </p>
                                                         <h4 className="text-base font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors truncate">
                                                             {entry.name}
@@ -534,14 +543,6 @@ function StreamView({ classData, user, onFileSelect }: { classData: any; user: a
                                                             <p className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
                                                                 {new Date(entry._creationTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                                                             </p>
-                                                            {entry.isAssignment && (
-                                                                <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">Assignment</span>
-                                                            )}
-                                                            {entry.isAssignment && entry.dueDate && (
-                                                                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
-                                                                    Due {new Date(entry.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                                                                </span>
-                                                            )}
                                                         </div>
                                                     </div>
                                                     <button className="w-8 h-8 rounded-md hover:bg-slate-50 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors">
@@ -719,6 +720,35 @@ function EntryEngagementBar({ classId, entry, user: _user }: { classId: Id<"clas
 
     const [openComments, setOpenComments] = useState(false);
     const [draftComment, setDraftComment] = useState("");
+    const [replyToId, setReplyToId] = useState<string | null>(null);
+
+    const formatCommentTime = (timestamp: number) =>
+        new Date(timestamp).toLocaleString([], {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+        });
+
+    const threadedComments = useMemo(() => {
+        const byParent: Map<string, any[]> = new globalThis.Map();
+        const roots: any[] = [];
+        const sorted = [...comments].sort((a: any, b: any) => a.createdAt - b.createdAt);
+        const idSet = new Set(sorted.map((comment: any) => String(comment._id)));
+
+        for (const comment of sorted) {
+            if (!comment.parentId || !idSet.has(String(comment.parentId))) {
+                roots.push(comment);
+                continue;
+            }
+            const key = String(comment.parentId);
+            byParent.set(key, [...(byParent.get(key) || []), comment]);
+        }
+
+        return { roots, byParent };
+    }, [comments]);
+
+    const replyTarget = comments.find((comment: any) => comment._id === replyToId);
 
     const submitComment = async () => {
         const content = draftComment.trim();
@@ -728,9 +758,52 @@ function EntryEngagementBar({ classId, entry, user: _user }: { classId: Id<"clas
             entryType: entry.entryType,
             entryId: String(entry._id),
             content,
+            parentId: replyToId || undefined,
         });
         setDraftComment("");
         setOpenComments(true);
+        setReplyToId(null);
+    };
+
+    const CommentCard = ({ comment, nested = false }: { comment: any; nested?: boolean }) => {
+        const replies = threadedComments.byParent.get(String(comment._id)) || [];
+        const author = comment.author?.name || comment.authorEmail?.split("@")[0] || "User";
+        const avatarLetter = author.slice(0, 1).toUpperCase();
+
+        return (
+            <div className={`rounded-xl border bg-white ${nested ? "border-emerald-100" : "border-slate-200"} px-3 py-2.5 shadow-[0_1px_0_rgba(15,23,42,0.03)]`}>
+                <div className="flex items-start gap-2.5">
+                    <div className={`h-8 w-8 shrink-0 rounded-full border inline-flex items-center justify-center text-[11px] font-bold ${nested ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                        {avatarLetter}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-slate-700 truncate">{author}</p>
+                            <p className="text-[10px] text-slate-400 shrink-0">{formatCommentTime(comment.createdAt)}</p>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap leading-5">{comment.content}</p>
+                        <button
+                            onClick={() => {
+                                setOpenComments(true);
+                                setReplyToId(String(comment._id));
+                            }}
+                            className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+                        >
+                            <CornerDownRight className="w-3.5 h-3.5" />
+                            Reply
+                        </button>
+                    </div>
+                </div>
+
+                {replies.length > 0 && (
+                    <div className="mt-2.5 pl-3 border-l-2 border-emerald-100 space-y-2">
+                        {replies.map((reply: any) => (
+                            <CommentCard key={reply._id} comment={reply} nested />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -753,28 +826,38 @@ function EntryEngagementBar({ classId, entry, user: _user }: { classId: Id<"clas
                         {comments.length === 0 && (
                             <p className="text-xs text-slate-400 font-medium">No comments yet.</p>
                         )}
-                        {comments.map((comment: any) => (
-                            <div key={comment._id} className="bg-white border border-slate-200 rounded-lg px-3 py-2.5">
-                                <p className="text-[11px] font-semibold text-slate-500">{comment.authorEmail?.split("@")[0]}</p>
-                                <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{comment.content}</p>
-                            </div>
+                        {threadedComments.roots.map((comment: any) => (
+                            <CommentCard key={comment._id} comment={comment} />
                         ))}
                     </div>
+                    {replyTarget && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-emerald-700 truncate">
+                                Replying to <span className="font-semibold">{replyTarget.author?.name || replyTarget.authorEmail?.split("@")[0]}</span>
+                            </p>
+                            <button
+                                onClick={() => setReplyToId(null)}
+                                className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
                     <div className="flex items-center gap-2">
                         <input
                             value={draftComment}
                             onChange={(event) => setDraftComment(event.target.value)}
-                            placeholder="Add comment"
-                            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700"
+                            placeholder={replyToId ? "Write a reply" : "Add comment"}
+                            className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
                         />
                         <button
                             onClick={() => {
                                 void submitComment();
                             }}
                             disabled={!draftComment.trim()}
-                            className="px-3.5 py-2.5 rounded-lg bg-slate-900 text-white text-xs font-semibold tracking-wide hover:bg-slate-800 disabled:opacity-50"
+                            className="px-3.5 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold tracking-wide hover:bg-emerald-700 disabled:opacity-50"
                         >
-                            Post
+                            {replyToId ? "Reply" : "Post"}
                         </button>
                     </div>
                 </div>
@@ -1172,7 +1255,7 @@ function ClassworkView({ classId, user }: { classId: Id<"classes">; user: any })
         [files]
     );
     const submissionByAssignment = useMemo(() => {
-        const latestByAssignment = new globalThis.Map<string, any>();
+        const latestByAssignment: Map<string, any> = new globalThis.Map();
         mySubmissions.forEach((submission: any) => {
             const current = latestByAssignment.get(submission.assignmentId);
             if (!current || submission.submittedAt > current.submittedAt) {

@@ -1685,8 +1685,9 @@ export const sendDirectMessage = mutation({
     classId: v.id("classes"),
     recipientEmail: v.string(),
     content: v.string(),
+    parentId: v.optional(v.id("directMessages")),
   },
-  handler: async (ctx, { classId, recipientEmail, content }) => {
+  handler: async (ctx, { classId, recipientEmail, content, parentId }) => {
     const user = await requireUser(ctx);
     const isSenderMember = await isClassMember(ctx, classId, user.email);
     const isRecipientMember = await isClassMember(ctx, classId, recipientEmail);
@@ -1701,6 +1702,7 @@ export const sendDirectMessage = mutation({
       recipientEmail,
       content: content.trim(),
       createdAt: Date.now(),
+      parentId,
     });
 
     await createNotification(ctx, {
@@ -1814,9 +1816,10 @@ export const addFileComment = mutation({
     fileId: v.id("files"),
     classId: v.id("classes"),
     content: v.string(),
+    parentId: v.optional(v.id("fileComments")),
     targetSubmissionId: v.optional(v.id("submissions")),
   },
-  handler: async (ctx, { fileId, classId, content, targetSubmissionId }) => {
+  handler: async (ctx, { fileId, classId, content, parentId, targetSubmissionId }) => {
     const user = await requireUser(ctx);
     const member = await isClassMember(ctx, classId, user.email);
     if (!member) throw new Error("Not in class");
@@ -1826,6 +1829,7 @@ export const addFileComment = mutation({
       classId,
       authorEmail: user.email,
       content: content.trim(),
+      parentId,
       targetSubmissionId,
       createdAt: Date.now(),
     });

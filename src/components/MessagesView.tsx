@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import {
   ChevronLeft,
+  CornerDownRight,
   MessageSquareMore,
   Search,
   SendHorizontal,
@@ -102,6 +103,7 @@ export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewPr
 
   const [selectedPeer, setSelectedPeer] = useState<string>("");
   const [draft, setDraft] = useState("");
+  const [replyToMessageId, setReplyToMessageId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false);
 
@@ -166,6 +168,26 @@ export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewPr
     useQuery(featureApi.getDirectMessages, peerEmail ? { classId, peerEmail } : "skip") ||
     EMPTY_ARRAY;
 
+  const threadedMessages = useMemo(() => {
+    const byParent = new globalThis.Map<string, any[]>();
+    const roots: any[] = [];
+    const sorted = [...messages].sort((a: any, b: any) => a.createdAt - b.createdAt);
+    const idSet = new Set(sorted.map((message: any) => String(message._id)));
+
+    for (const message of sorted) {
+      if (!message.parentId || !idSet.has(String(message.parentId))) {
+        roots.push(message);
+        continue;
+      }
+      const key = String(message.parentId);
+      byParent.set(key, [...(byParent.get(key) || []), message]);
+    }
+
+    return { roots, byParent };
+  }, [messages]);
+
+  const replyTargetMessage = messages.find((message: any) => message._id === replyToMessageId);
+
   const sendMessage = async () => {
     const content = draft.trim();
     if (!content || !peerEmail) return;
@@ -174,8 +196,10 @@ export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewPr
       classId,
       recipientEmail: peerEmail,
       content,
+      parentId: replyToMessageId || undefined,
     });
     setDraft("");
+    setReplyToMessageId(null);
   };
 
   const sendMessageFromKeyboard = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -183,6 +207,45 @@ export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewPr
       event.preventDefault();
       void sendMessage();
     }
+  };
+
+  const MessageBubble = ({ message, nested = false }: { message: any; nested?: boolean }) => {
+    const mine = message.senderEmail === user.email;
+    const replies = threadedMessages.byParent.get(String(message._id)) || [];
+
+    return (
+      <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+        <div className={`max-w-[90%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
+          <div
+            className={`rounded-[20px] border px-4 py-3 leading-6 shadow-sm ${
+              mine
+                ? "bg-emerald-600 border-emerald-600 text-white rounded-br-[10px]"
+                : "bg-white border-slate-200 text-slate-700 rounded-bl-[10px]"
+            } ${nested ? "ring-1 ring-emerald-100" : ""}`}
+          >
+            <p className="text-sm md:text-[15px] whitespace-pre-wrap">{message.content}</p>
+          </div>
+          <div className="mt-1 px-1 inline-flex items-center gap-2">
+            <p className="text-[11px] text-slate-500">{formatMessageTime(message.createdAt)}</p>
+            <button
+              onClick={() => setReplyToMessageId(String(message._id))}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+            >
+              <CornerDownRight className="h-3.5 w-3.5" />
+              Reply
+            </button>
+          </div>
+
+          {replies.length > 0 && (
+            <div className={`mt-2 space-y-2 border-l-2 border-emerald-100 pl-3 ${mine ? "mr-2" : "ml-2"}`}>
+              {replies.map((reply: any) => (
+                <MessageBubble key={reply._id} message={reply} nested />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -322,11 +385,10 @@ export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewPr
                   </div>
                 )}
 
-                {messages.map((message: any, index: number) => {
-                  const mine = message.senderEmail === user.email;
+                {threadedMessages.roots.map((message: any, index: number) => {
                   const showDateDivider =
                     index === 0 ||
-                    new Date(messages[index - 1].createdAt).toDateString() !==
+                    new Date(threadedMessages.roots[index - 1].createdAt).toDateString() !==
                       new Date(message.createdAt).toDateString();
 
                   return (
@@ -341,34 +403,32 @@ export function MessagesView({ classId, user, initialPeerEmail }: MessagesViewPr
                         </div>
                       )}
 
-                      <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[88%] ${mine ? "items-end" : "items-start"} flex flex-col`}>
-                          <div
-                            className={`rounded-[20px] border px-4 py-3 leading-6 shadow-sm ${
-                              mine
-                                ? "bg-emerald-600 border-emerald-600 text-white rounded-br-[10px]"
-                                : "bg-white border-slate-200 text-slate-700 rounded-bl-[10px]"
-                            }`}
-                          >
-                            <p className="text-sm md:text-[15px] whitespace-pre-wrap">{message.content}</p>
-                          </div>
-                          <p className="px-1 mt-1 text-[11px] text-slate-500">
-                            {formatMessageTime(message.createdAt)}
-                          </p>
-                        </div>
-                      </div>
+                      <MessageBubble message={message} />
                     </div>
                   );
                 })}
               </div>
 
               <footer className="border-t border-slate-200 bg-slate-50 p-3 md:p-4">
+                {replyTargetMessage && (
+                  <div className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-2">
+                    <p className="text-xs text-emerald-700 truncate">
+                      Replying to <span className="font-semibold">{replyTargetMessage.senderEmail === user.email ? "your message" : selectedPeerMeta?.name || selectedPeerMeta?.email || "message"}</span>
+                    </p>
+                    <button
+                      onClick={() => setReplyToMessageId(null)}
+                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 flex items-end gap-2">
                   <textarea
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     onKeyDown={sendMessageFromKeyboard}
-                    placeholder={peerEmail ? "Write a Message" : "Select a conversation first"}
+                    placeholder={peerEmail ? (replyToMessageId ? "Write a reply" : "Write a message") : "Select a conversation first"}
                     rows={1}
                     className="flex-1 min-h-[42px] max-h-32 px-2 py-2 rounded-lg bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-y"
                   />

@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Doc, Id } from "../../convex/_generated/dataModel";
-import { X, Download, Image as ImageIcon, File as FileIcon, Globe, Layout, Edit3, Presentation, ExternalLink, Link2, Upload, Loader2, MessageSquare, Save } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { X, Download, Image as ImageIcon, File as FileIcon, Globe, Layout, Edit3, Presentation, ExternalLink, Link2, Upload, Loader2, MessageSquare, Save, CornerDownRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import WebViewer from "@pdftron/webviewer";
 
 interface FileViewerProps {
@@ -25,13 +25,12 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importTarget, setImportTarget] = useState<"google" | "canva" | null>(null);
-  const [submissionText, setSubmissionText] = useState("");
-  const [submissionLink, setSubmissionLink] = useState("");
   const [submissionFile, setSubmissionFile] = useState<globalThis.File | null>(null);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
   const [showSubmission, setShowSubmission] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
+  const [replyToCommentId, setReplyToCommentId] = useState<string | null>(null);
   const [gradeDrafts, setGradeDrafts] = useState<Record<string, { score: string; feedback: string }>>({});
   const questionPrompts = file.questionPrompts || [];
 
@@ -159,11 +158,7 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
   };
 
   const handleAssignmentSubmit = async () => {
-    const trimmedText = submissionText.trim();
-    const rawLink = submissionLink.trim();
-    const normalizedLink = rawLink && !/^https?:\/\//i.test(rawLink) ? `https://${rawLink}` : rawLink;
-
-    if (!trimmedText && !normalizedLink && !submissionFile) return;
+    if (!submissionFile) return;
 
     setSubmittingAssignment(true);
     setSubmissionError("");
@@ -189,16 +184,12 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
       await submitAssignment({
         assignmentId: file._id,
         classId: file.classId,
-        content: trimmedText || undefined,
-        linkUrl: normalizedLink || undefined,
         storageId,
         fileName: submissionFile ? submissionFile.name : undefined,
         fileMimeType: submissionFile ? (submissionFile.type || "application/octet-stream") : undefined,
         fileSize: submissionFile ? submissionFile.size : undefined,
       });
 
-      setSubmissionText("");
-      setSubmissionLink("");
       setSubmissionFile(null);
       setShowSubmission(true);
     } catch (error) {
@@ -228,6 +219,34 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
     }));
   };
 
+  const formatCommentTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+  const threadedComments = useMemo(() => {
+    const byParent = new Map<string, any[]>();
+    const roots: any[] = [];
+    const sorted = [...fileComments].sort((a: any, b: any) => a.createdAt - b.createdAt);
+    const idSet = new Set(sorted.map((comment: any) => String(comment._id)));
+
+    for (const comment of sorted) {
+      if (!comment.parentId || !idSet.has(String(comment.parentId))) {
+        roots.push(comment);
+        continue;
+      }
+      const key = String(comment.parentId);
+      byParent.set(key, [...(byParent.get(key) || []), comment]);
+    }
+
+    return { roots, byParent };
+  }, [fileComments]);
+
+  const replyTarget = fileComments.find((comment: any) => comment._id === replyToCommentId);
+
   const submitFileCommentText = async () => {
     const content = commentDraft.trim();
     if (!content) return;
@@ -235,8 +254,46 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
       fileId: file._id,
       classId: file.classId,
       content,
+      parentId: replyToCommentId || undefined,
     });
     setCommentDraft("");
+    setReplyToCommentId(null);
+  };
+
+  const CommentCard = ({ comment, nested = false }: { comment: any; nested?: boolean }) => {
+    const replies = threadedComments.byParent.get(String(comment._id)) || [];
+    const author = comment.authorEmail?.split("@")[0] || "User";
+
+    return (
+      <div className={`rounded-xl border bg-white px-3 py-2.5 ${nested ? "border-emerald-100" : "border-slate-200"}`}>
+        <div className="flex items-start gap-2.5">
+          <div className={`h-8 w-8 rounded-full border shrink-0 inline-flex items-center justify-center text-[11px] font-bold ${nested ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+            {author.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-slate-700 truncate">{author}</p>
+              <p className="text-[10px] text-slate-400 shrink-0">{formatCommentTime(comment.createdAt)}</p>
+            </div>
+            <p className="text-sm text-slate-700 whitespace-pre-wrap mt-1 leading-5">{comment.content}</p>
+            <button
+              onClick={() => setReplyToCommentId(String(comment._id))}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+            >
+              <CornerDownRight className="w-3.5 h-3.5" />
+              Reply
+            </button>
+          </div>
+        </div>
+        {replies.length > 0 && (
+          <div className="mt-2.5 pl-3 border-l-2 border-emerald-100 space-y-2">
+            {replies.map((reply: any) => (
+              <CommentCard key={reply._id} comment={reply} nested />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -439,26 +496,6 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
 
               {userRole === "student" ? (
                 <div className="space-y-3">
-                  <textarea
-                    value={submissionText}
-                    onChange={(e) => {
-                      setSubmissionText(e.target.value);
-                      setShowSubmission(false);
-                      setSubmissionError("");
-                    }}
-                    className="w-full px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-medium text-slate-700 h-24 resize-none"
-                    placeholder="Add written answers (optional if you upload/link)."
-                  />
-                  <input
-                    value={submissionLink}
-                    onChange={(e) => {
-                      setSubmissionLink(e.target.value);
-                      setShowSubmission(false);
-                      setSubmissionError("");
-                    }}
-                    className="w-full px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-medium text-slate-700"
-                    placeholder="Paste answer link (Google Doc, Drive, etc.)"
-                  />
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <input
@@ -476,7 +513,7 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-slate-200 text-[10px] font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50 cursor-pointer"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        {submissionFile ? "Change File" : "Upload Answer File"}
+                        {submissionFile ? "Change File" : "Upload Response"}
                       </label>
                       {submissionFile && (
                         <span className="text-[10px] text-slate-500 font-medium">
@@ -488,11 +525,11 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
                       onClick={() => {
                         void handleAssignmentSubmit();
                       }}
-                      disabled={submittingAssignment || (!submissionText.trim() && !submissionLink.trim() && !submissionFile)}
+                      disabled={submittingAssignment || !submissionFile}
                       className="bg-emerald-600 text-white px-4 py-2 rounded-md font-bold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                     >
                       {submittingAssignment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      {submittingAssignment ? "Submitting..." : "Submit Homework"}
+                      {submittingAssignment ? "Submitting..." : "Submit Response"}
                     </button>
                   </div>
                   {showSubmission && (
@@ -611,32 +648,42 @@ export function FileViewer({ file, onClose, userRole }: FileViewerProps) {
                     </p>
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{fileComments.length} comments</span>
                   </div>
-                  <div className="space-y-2 max-h-40 overflow-auto">
+                  <div className="space-y-2 max-h-52 overflow-auto">
                     {fileComments.length === 0 && (
                       <p className="text-xs text-slate-400 font-medium">No comments yet.</p>
                     )}
-                    {fileComments.map((comment: any) => (
-                      <div key={comment._id} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{comment.authorEmail.split("@")[0]}</p>
-                        <p className="text-xs text-slate-700 whitespace-pre-wrap mt-1">{comment.content}</p>
-                      </div>
+                    {threadedComments.roots.map((comment: any) => (
+                      <CommentCard key={comment._id} comment={comment} />
                     ))}
                   </div>
+                  {replyTarget && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-emerald-700 truncate">
+                        Replying to <span className="font-semibold">{replyTarget.authorEmail?.split("@")[0]}</span>
+                      </p>
+                      <button
+                        onClick={() => setReplyToCommentId(null)}
+                        className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2">
                     <input
                       value={commentDraft}
                       onChange={(e) => setCommentDraft(e.target.value)}
-                      placeholder={userRole === "student" ? "Ask a question" : "Leave a note"}
-                      className="flex-1 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700"
+                      placeholder={replyToCommentId ? "Write a reply" : userRole === "student" ? "Ask a question" : "Leave a note"}
+                      className="flex-1 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-xs font-medium text-slate-700 outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
                     />
                     <button
                       onClick={() => {
                         void submitFileCommentText();
                       }}
                       disabled={!commentDraft.trim()}
-                      className="px-3 py-2 rounded-md bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest disabled:opacity-50"
+                      className="px-3 py-2 rounded-md bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-widest disabled:opacity-50 hover:bg-emerald-700"
                     >
-                      Post
+                      {replyToCommentId ? "Reply" : "Post"}
                     </button>
                   </div>
                 </div>
